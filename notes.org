@@ -1,0 +1,77 @@
+#+title: From Skipgrams to Schemata
+
+* Idea
+
+- schemata are
+  - ideally: a succession of simultaneous sounding groups of notes ("stages")
+  - actually: elaborated by
+    - intermediate notes
+    - non-simultaneity
+
+- Skipgram:
+  - model limited non-adjacency
+  - can be generalized to streams of overlapping entities
+  - => can model non-simultaneity
+
+- approach:
+  - generalize skipgrams (from sequences to cost-monotonic streams)
+  - use SGs over SGs to model schemata
+    - SGs over notes: non-simultaneous stages (internally)
+    - SGs over stages: non-adjacent stages (externally)
+  - frequent SG^2s in corpus <=> schemata?
+
+* Skipgrams
+
+** original idea
+
+- sequence of entities (letters, words, ...)
+  - n-grams: continuous sub-sequences of length n
+    - total: L-n (L>n)
+  - k-skip-n-grams: sequences of length n, that skip at most k entities (total: ?)
+    - total: (k+1)(k+2)/6 * (3L-2k-6) for n=3 (Guthrie et al., 2006)
+      - is there a general analysis (exact or asymptotic)
+
+** generalizations
+
+- flexible cost (Sears et al. 2017, maybe even earlier?)
+  - "cost" instead of "skips" (skips = cost based on skipped elements/indices)
+  - => total depends not on (n,k) but on (n,l), where l is RV #(elements in k-range).
+
+- overlapping input
+  - "cost" idea + input may "overlap" (like notes, unlike words)
+  - requirement: monotonic ordering in stream wrt. cost (read < as "before")
+    - ∀ x<y<z: cost(x,y) ≤ cost(x,z)
+
+- stochastic selection
+  - ...
+
+** algorithms
+
+*** generalized skipgrams
+
+In: cost-monotonic stream of entities
+Out: stream of skipgrams
+Idea: collect prefixes while iterating over input
+
+#+begin_src python
+    Skipgrams(in, k, n, cost):
+        prefixes <- {}
+        out <- {}
+        for x in in:
+            # close old prefixes
+            openpfxs <- { pfx | pfx ∈ prefixes, totalcost(cost, pfx, x) > k }
+            # extend remaining prefixes
+            extpfxs <- { pfx+x | pfx ∈ openpfxs }
+            # collect completed grams
+            out <- out ∪ { pfx | pfx ∈ extpfxs, |pfx|==n }
+            # continue with remaining pfxs
+            prefixes <- openpfxs ∪ { pfx | pfx ∈ extpfxs, |pfx|<n } ∪ { x }
+        end
+        return out
+    end
+#+end_src
+
+- extensions:
+  - early filtering: include prefix predicate
+
+#  LocalWords:  skipgrams
