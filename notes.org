@@ -49,29 +49,80 @@
 
 *** generalized skipgrams
 
-In: cost-monotonic stream of entities
-Out: stream of skipgrams
 Idea: collect prefixes while iterating over input
-
+In: cost-monotonic stream of entities, k, n, cost function
+Out: stream of skipgrams
+Algorithm:
 #+begin_src python
-    Skipgrams(in, k, n, cost):
-        prefixes <- {}
-        out <- {}
-        for x in in:
+    Skipgrams(input, k, n, cost):
+        prefixes = {}
+        output = {}
+        for x in input:
             # close old prefixes
-            openpfxs <- { pfx | pfx ∈ prefixes, totalcost(cost, pfx, x) > k }
+            openpfxs = { pfx | pfx ∈ prefixes, totalcost(cost, pfx, x) > k }
             # extend remaining prefixes
-            extpfxs <- { pfx+x | pfx ∈ openpfxs }
+            extpfxs = { pfx+x | pfx ∈ openpfxs }
             # collect completed grams
-            out <- out ∪ { pfx | pfx ∈ extpfxs, |pfx|==n }
+            output = output ∪ { pfx | pfx ∈ extpfxs, |pfx|==n }
             # continue with remaining pfxs
-            prefixes <- openpfxs ∪ { pfx | pfx ∈ extpfxs, |pfx|<n } ∪ { x }
+            prefixes = openpfxs ∪ { pfx | pfx ∈ extpfxs, |pfx|<n } ∪ { x }
+        end
+        return output
+    end
+#+end_src
+
+*** early filtering
+
+Idea: include prefix predicate
+In: input stream, k, n, cost function, prefix predicate P
+Out: stream of skipgrams that satisfy P
+Algorithm: like generalized skipgrams but filter new prefixes by P
+
+*** stable ordering
+
+- stable ordering
+  - standard alg orders by index of last gram element in input stream
+  - ordering by first:
+    - eager: compute output, sort before returning it
+      - not feasible for large output
+    - lazy: priority queue
+      - enqueue grams with priority according to index of first element
+      - dequeue only where priority < minimal index in prefixes
+
+Idea: hold back complete prefixes that might still be preceded by prefixes completed later
+In: input stream, k, n, cost function, output channel
+Out: stream of skipgrams on output channel, first elements keep order of input stream
+Algorithm:
+#+begin_src python
+    Skipgrams(input, k, n, cost, outchannel):
+        prefixes = {}
+        outq = []
+        i = 0 # running index
+        for x in input:
+            # close old prefixes
+            openpfxs = { (prio, pfx) | (prio, pfx) ∈ prefixes, totalcost(cost, pfx, x) > k }
+            # release queue items
+            released, outq = release(outq, min({prio | (prio, _) ∈ openpfxs }))
+            put(outchannel, released)
+            # extend remaining prefixes
+            extpfxs = { (prio, pfx+x) | (prio, pfx) ∈ openpfxs }
+            # collect completed grams
+            outq = merge(outq, sort([(prio, pfx) | (prio, pfx) ∈ extpfxs, |pfx|==n]))
+            # continue with remaining pfxs
+            prefixes = openpfxs ∪ { (prio, pfx) | (prio, pfx) ∈ extpfxs, |pfx|<n } ∪ { (i, x) }
+            i+=1
         end
         return out
     end
 #+end_src
 
-- extensions:
-  - early filtering: include prefix predicate
+*** stochastic skipgrams
 
-#  LocalWords:  skipgrams
+- SG²: large amount of output, takes very long to compute
+- sample skipgrams randomly:
+  - (a) flip biased (p) coin for each skipgram -> easy to implement
+  - (b) choose M random skipgrams -> controllable output size (implementation?)
+
+Idea: 
+
+#  LocalWords:  skipgrams skipgram
