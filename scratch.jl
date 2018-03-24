@@ -1,59 +1,42 @@
-using Revise
+addprocs([("chfin-tp", :auto)])
+
+addprocs()
+
+#using Revise
 using DigitalMusicology
-using DigitalMusicology.Helpers.witheltype
 
-using DataFrames
+# using DataFrames
 
-import FunctionalCollections
-using IterTools: imap
+#uselac("/home/chfin/Uni/phd/data/midi_archive/");
+@everywhere DigitalMusicology.usekern("/home/chfin/Uni/phd/data/csapp/mozart-piano-sonatas/");
 
-FC = FunctionalCollections
+@everywhere include("skipgrams.jl");
 
-uselac("/home/chfin/Uni/phd/data/midi_archive/");
+# notelist_span(ns::Vector{TimedNote{P,T}}) where {P,T} =
+#     maximum(map(offset, ns)) - minimum(map(onset, ns))
 
-notelist_span(ns::Vector{TimedNote{P,T}}) where {P,T} =
-    maximum(map(offset, ns)) - minimum(map(onset, ns))
 
-unsims(notes, maxioi, n) =
-    skipgrams(notes, Float64(maxioi), n, onsetcost, stable=true)
+# @midi prinner1 = FlatSchema([9 5; 7 4; 5 2; 4 0])
 
-function unsimskipgrams(unsims, k, n)
-    uonset(u)  = onset(u[1]) # unsims are sorted by onset
-    uoffset(u) = maximum(map(offset, u)) # but not by offset
-    unsimdist(u1, u2) = uonset(u2) - uoffset(u1)
-    nooverlap(pfx) = uonset(FC.head(pfx)) >= uoffset(FC.head(FC.tail(pfx)))
-    skipgrams(unsims, k, n, unsimdist, nooverlap)
-end
+# countschemamatches(fs::FlatSchema, itr) =
+#     sum(gram -> matchschema(fs, gram), itr)
 
-schemacanify(pitches::Vector{Vector{P}}) where {P<:Pitch} =
-    
+# function findfirstschema(fs::FlatSchema, itr)
+#     for gram in itr
+#         matches = matchschema(fs, gram)
+#         if !isempty(matches)
+#             return (gram, matches)
+#         end
+#     end
+# end
 
-function schemacandidates(notes, voices, k1, stages, k2)
-    sgs = unsimskipgrams(unsims(notes, k1, voices), k2, stages)
-    witheltype(imap(sg -> schemacanify(map(pitches, sg))), Vector{Vector{MidiPitch}})
-end
-
-@midi prinner1 = FlatSchema([9 5; 7 4; 5 2; 4 0])
-
-countschemamatches(fs::FlatSchema, itr) =
-    sum(gram -> matchschema(fs, gram), itr)
-
-function findfirstschema(fs::FlatSchema, itr)
-    for gram in itr
-        matches = matchschema(fs, gram)
-        if !isempty(matches)
-            return (gram, matches)
-        end
-    end
-end
-
-prinnerpiece = "1/mo-ps-03"
+prinnerpiece = "sonata03-2"
 
 notes = getpiece(prinnerpiece, :notes_secs)
 
-mozunsims = unsims(notes, 1.0, 2)
+mozunsims = unsims(notes, 1.0, 2, 1.0)
 
-sgs = unsimskipgrams(mozunsims, 1.0, 2)
+sgs = unsimskipgrams(mozunsims, 1.0, 4, 0.00001)
 
 itrlen(itr) = count(x->true, itr)
 
@@ -70,3 +53,5 @@ function firstduplicate(itr)
 end
 
 iscompat(u1, u2) = maximum(map(offset, u1)) <= minimum(map(offset, u2))
+
+hasrepeat(cand) = all(i -> cand[i] == cand[i+1], 1:(length(cand)-1))
