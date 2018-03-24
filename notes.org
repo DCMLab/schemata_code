@@ -94,7 +94,7 @@ In: input stream, k, n, cost function, output channel
 Out: stream of skipgrams on output channel, first elements keep order of input stream
 Algorithm:
 #+begin_src python
-    Skipgrams(input, k, n, cost, outchannel):
+    StableSkipgrams(input, k, n, cost, outchannel):
         prefixes = {}
         outq = []
         i = 0 # running index
@@ -121,8 +121,35 @@ Algorithm:
 - SG²: large amount of output, takes very long to compute
 - sample skipgrams randomly:
   - (a) flip biased (p) coin for each skipgram -> easy to implement
-  - (b) choose M random skipgrams -> controllable output size (implementation?)
+  - (b) choose M random skipgrams -> controllable output size
 
-Idea: 
+Idea 1:
+- flip a coin at every prefix extension: ∀sg: P(sg ∈ output) = p
+- sg length n: biasⁿ = p
+In: input stream, k, n, cost, p
+Out: stream of stochastic skipgrams with membership probability p
+#+begin_src python
+    StochasticSkipgrams(input, k, n, cost, p):
+        prefixes = {}
+        output = {}
+        bias = root(p, n)
+        for x in input:
+            # close old prefixes
+            openpfxs = { pfx | pfx ∈ prefixes, totalcost(cost, pfx, x) > k }
+            # extend remaining prefixes
+            extpfxs = { pfx+x | pfx ∈ openpfxs, flip(bias) }
+            # collect completed grams
+            output = output ∪ { pfx | pfx ∈ extpfxs, |pfx|==n }
+            # continue with remaining pfxs
+            prefixes = openpfxs ∪ { pfx | pfx ∈ extpfxs, |pfx|<n } ∪ { x }
+        end
+        return output
+    end
+#+end_src
+
+Idea 2:
+- limit the number of prefixes extended with a given candidate
+- N ≤ lⁿ -> limit l: l=N^(1/n), where l is max. #(extended prefixes per candidate)
+- can we sample l based on available prefixes such that 'N ≤' becomes 'E[N] ='?
 
 #  LocalWords:  skipgrams skipgram
