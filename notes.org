@@ -60,12 +60,12 @@ Algorithm:
         for x in input:
             # close old prefixes
             openpfxs = { pfx | pfx ∈ prefixes, totalcost(cost, pfx, x) > k }
-            # extend remaining prefixes
-            extpfxs = { pfx+x | pfx ∈ openpfxs }
+            # extend remaining prefixes (and "empty prefix")
+            extpfxs = { pfx+x | pfx ∈ openpfxs } ∪ { x }
             # collect completed grams
             output = output ∪ { pfx | pfx ∈ extpfxs, |pfx|==n }
             # continue with remaining pfxs
-            prefixes = openpfxs ∪ { pfx | pfx ∈ extpfxs, |pfx|<n } ∪ { x }
+            prefixes = openpfxs ∪ { pfx | pfx ∈ extpfxs, |pfx|<n }
         end
         return output
     end
@@ -104,12 +104,12 @@ Algorithm:
             # release queue items
             released, outq = release(outq, min({prio | (prio, _) ∈ openpfxs }))
             put(outchannel, released)
-            # extend remaining prefixes
-            extpfxs = { (prio, pfx+x) | (prio, pfx) ∈ openpfxs }
+            # extend remaining prefixes (and "empty prefix")
+            extpfxs = { (prio, pfx+x) | (prio, pfx) ∈ openpfxs } ∪ { (i, x) }
             # collect completed grams
             outq = merge(outq, sort([(prio, pfx) | (prio, pfx) ∈ extpfxs, |pfx|==n]))
             # continue with remaining pfxs
-            prefixes = openpfxs ∪ { (prio, pfx) | (prio, pfx) ∈ extpfxs, |pfx|<n } ∪ { (i, x) }
+            prefixes = openpfxs ∪ { (prio, pfx) | (prio, pfx) ∈ extpfxs, |pfx|<n }
             i+=1
         end
         return out
@@ -136,12 +136,12 @@ Out: stream of stochastic skipgrams with membership probability p
         for x in input:
             # close old prefixes
             openpfxs = { pfx | pfx ∈ prefixes, totalcost(cost, pfx, x) > k }
-            # extend remaining prefixes
-            extpfxs = { pfx+x | pfx ∈ openpfxs, flip(bias) }
+            # extend remaining prefixes (and "empty prefix")
+            extpfxs = { pfx+x | pfx ∈ openpfxs, flip(bias) } ∪ { x }
             # collect completed grams
             output = output ∪ { pfx | pfx ∈ extpfxs, |pfx|==n }
             # continue with remaining pfxs
-            prefixes = openpfxs ∪ { pfx | pfx ∈ extpfxs, |pfx|<n } ∪ { x }
+            prefixes = openpfxs ∪ { pfx | pfx ∈ extpfxs, |pfx|<n }
         end
         return output
     end
