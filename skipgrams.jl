@@ -7,7 +7,10 @@ import FunctionalCollections
 #using IterTools: imap
 FC = FunctionalCollections
 
-export countpiecesschemas, countpiecesschemas
+include("trie2.jl")
+using .SchemaTrie
+
+export countpiecesschemas, countpiecesschemas, rankcounts, topranks
 
 unsims(notes, maxioi, n, p=1.0) =
     skipgrams(notes, Float64(maxioi), n, onsetcost, stable=true, p=p)
@@ -41,10 +44,12 @@ end
 
 function countmapby(itr, mapf=id, weightf=(x->1.0))
     T = typeof(mapf(first(itr))) # ugly hack
-    coll = Dict{T, Float64}()
+    coll = mktrie(eltype(T), Float64)
+    #coll = Dict{T, Float64}()
     for x in itr
         mapped = mapf(x)
-        coll[mapped] = get(coll, mapped, 0.0) + weightf(x)
+        update!(x -> x + weightf(x), coll, mapped, 0.0)
+        #coll[mapped] = get(coll, mapped, 0.0) + weightf(x)
     end
     coll
 end
@@ -78,7 +83,7 @@ end
 printrank(rank) =
     print(string(rank[2], ": ", candidatestring(rank[1])), "\n")
 
-top_ranks(ranks, n) =
+topranks(ranks, n) =
     foreach(printrank, Iterators.take(ranks, n))
 
 # """

@@ -54,4 +54,4 @@ end
 
 iscompat(u1, u2) = maximum(map(offset, u1)) <= minimum(map(offset, u2))
 
-hasrepeat(cand) = all(i -> cand[i] == cand[i+1], 1:(length(cand)-1))
+hasrepeat(cand) = any(i -> cand[i] == cand[i+1], 1:(length(cand)-1))
