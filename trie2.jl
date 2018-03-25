@@ -2,7 +2,7 @@ module SchemaTrie
 
 export mktrie, update!
 
-import Base: get, getindex, setindex!, convert, collect, merge!, length
+import Base: get, getindex, setindex!, convert, collect, merge!, length, show
 
 abstract type Trie{T,V} end
 
@@ -15,6 +15,9 @@ struct SubTrie{T, V} <: Trie{T,V}
 end
 
 mktrie(T::Type, V::Type) = SubTrie(Dict{T,Trie{T,V}}())
+
+show(io::IO, t::Trie{T,V}) where {T,V} =
+    write(io, string("Trie{", T, ",", V, "}(...)"))
 
 isleaf(t) = false
 isleaf(t::Leaf) = true

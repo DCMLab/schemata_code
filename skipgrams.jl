@@ -11,6 +11,7 @@ include("trie2.jl")
 using .SchemaTrie
 
 export countpiecesschemas, countpiecesschemas, rankcounts, topranks
+export unsims, unsimskipgrams, schemacandify, countmapby
 
 unsims(notes, maxioi, n, p=1.0) =
     skipgrams(notes, Float64(maxioi), n, onsetcost, stable=true, p=p)
