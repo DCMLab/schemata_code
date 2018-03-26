@@ -1,6 +1,6 @@
 addprocs([("chfin-tp", :auto)])
 
-addprocs()
+addprocs(3)
 
 #using Revise
 using DigitalMusicology
@@ -10,27 +10,35 @@ using DigitalMusicology
 #uselac("/home/chfin/Uni/phd/data/midi_archive/");
 @everywhere DigitalMusicology.usekern("/home/chfin/Uni/phd/data/csapp/mozart-piano-sonatas/");
 
-@everywhere include("skipgrams.jl");
+@everywhere include("skipgrams.jl")
 
-densities = map(allpieces()) do id
-    notes = getpiece(id, :notes_secs)
-    (id, length(notes)^2/offset(notes[end]))
+function weightpieces(pieces)
+    densities = map(allpieces()) do id
+        notes = getpiece(id, :notes_secs)
+        (id, length(notes)/(onset(notes[end])-onset(notes[1])))
+    end
+    mdens = mean(map(x->x[2], densities))
+    map(densities) do p
+        (p[1], mdens/p[2])
+    end
 end
 
-pieces = map(first, sort(densities, by=x->x[2], rev=true))
+#pieces = map(first, sort(densities, by=x->x[2], rev=true))
 
-itrlen(itr) = count(x->true, itr)
+# itrlen(itr) = count(x->true, itr)
 
-durations = map(allpieces()) do id
-    println(id)
-    notes = getpiece(id, :notes_secs)
-    sgs = Unsims.unsimskipgrams(Unsims.unsims(notes, 1.0, 2), 1.0, 3, 0.00001)
-    (id, itrlen(sgs))
-end
+# durations = map(allpieces()) do id
+#     println(id)
+#     notes = getpiece(id, :notes_secs)
+#     sgs = Unsims.unsimskipgrams(Unsims.unsims(notes, 1.0, 2), 1.0, 3, 0.00001)
+#     (id, itrlen(sgs))
+# end
 
-piecesd = map(first, sort(durations, by=x->x[2], rev=true))
+# piecesd = map(first, sort(durations, by=x->x[2], rev=true))
 
-@time counts = Unsims.countpiecesschemas(pieces, 2, 1.0, 4, 1.0, 0.00001);
+pieces = weightpieces(allpieces())
+
+@time counts = Unsims.countpiecesschemasflex(pieces, 3, 4, 1.0, 0.00000001);
 
 ranks = Unsims.rankcounts(counts);
 

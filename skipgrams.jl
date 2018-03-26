@@ -72,6 +72,12 @@ function countpiecesschemas(pieces, voices, k1, stages, k2, p)
            pmap(counts, pieces))
 end
 
+function countpiecesschemasflex(pieces, voices, stages, finkenskip, p)
+    counts(piece) = Unsims.countpieceschemas(piece[1], voices, finkenskip*piece[2], stages, finkenskip*piece[2], p)
+    reduce((a,b) -> merge!(+, a, b),
+           pmap(counts, pieces))
+end
+
 rankcounts(counts) = sort(collect(counts), rev=true, by=x->x[2])
 
 function candidatestring(candidate)
