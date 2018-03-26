@@ -1,8 +1,8 @@
 addprocs([("chfin-tp", :auto)])
+#addprocs([("128.179.133.166", :auto)])
 
-addprocs(3)
+addprocs()
 
-#using Revise
 using DigitalMusicology
 
 # using DataFrames
@@ -11,6 +11,8 @@ using DigitalMusicology
 @everywhere DigitalMusicology.usekern("/home/chfin/Uni/phd/data/csapp/mozart-piano-sonatas/");
 
 @everywhere include("skipgrams.jl")
+
+include("skipgrams.jl")
 
 function weightpieces(pieces)
     densities = map(allpieces()) do id
@@ -23,26 +25,26 @@ function weightpieces(pieces)
     end
 end
 
-#pieces = map(first, sort(densities, by=x->x[2], rev=true))
+function piecebarlen(piece)
+    fn = piecepath(piece, "midi-norep", ".mid")
+    midi = MIDI.readMIDIfile(fn)
+    foreach(MIDI.toabsolutetime!, midi.tracks)
+    uptrack = MidiFiles.uptype(midi.tracks[1])
+    sig = map(tsme -> tsme.ev.sig, filter(ev -> typeof(ev.ev) == MidiFiles.TimeSignatureME, uptrack))[1]
+    sig.num//sig.denom
+end
 
-# itrlen(itr) = count(x->true, itr)
+pieces = map(p -> (p, piecebarlen(p)), allpieces())
 
-# durations = map(allpieces()) do id
-#     println(id)
-#     notes = getpiece(id, :notes_secs)
-#     sgs = Unsims.unsimskipgrams(Unsims.unsims(notes, 1.0, 2), 1.0, 3, 0.00001)
-#     (id, itrlen(sgs))
-# end
-
-# piecesd = map(first, sort(durations, by=x->x[2], rev=true))
-
-pieces = weightpieces(allpieces())
-
-@time counts = Unsims.countpiecesschemasflex(pieces, 3, 4, 1.0, 0.00000001);
+@time counts = Unsims.countpiecesschemasbars(pieces, 3, 4, 1.0, 0.000000001);
 
 ranks = Unsims.rankcounts(counts);
 
 Unsims.topranks(ranks, 50)
+
+@time counts = Unsims.countpieceschemaswholes("sonata03-2", 3, 0.375, 4, 1.5, 0.000000001)
+
+@time counts = Unsims.countpiecesschemasbars(pieces[1:3], 3, 4, 0.000001)
 
 # notelist_span(ns::Vector{TimedNote{P,T}}) where {P,T} =
 #     maximum(map(offset, ns)) - minimum(map(onset, ns))
@@ -85,3 +87,5 @@ end
 iscompat(u1, u2) = maximum(map(offset, u1)) <= minimum(map(offset, u2))
 
 hasrepeat(cand) = any(i -> cand[i] == cand[i+1], 1:(length(cand)-1))
+
+hasmorethanthree(cand) = length(Set(vcat(cand...))) > 3

@@ -19,7 +19,7 @@ unsims(notes, maxioi, n, p=1.0) =
 function unsimskipgrams(unsims, k, n, p=1.0)
     uonset(u)  = onset(u[1]) # unsims are sorted by onset
     uoffset(u) = maximum(map(offset, u)) # but not by offset
-    unsimdist(u1, u2) = uonset(u2) - uoffset(u1)
+    unsimdist(u1, u2) = onset(u2[1]) - onset(u1[1])
     nooverlap(pfx) = uonset(FC.head(pfx)) >= uoffset(FC.head(FC.tail(pfx)))
     skipgrams(unsims, k, n, unsimdist, nooverlap, p=p)
 end
@@ -66,6 +66,18 @@ function countpieceschemas(id, voices, k1, stages, k2, p)
     counts
 end
 
+function countpieceschemaswholes(id, voices, k1, stages, k2, p)
+    println("processing ", id)
+    notes = map(getpiece(id, :notes_wholes)) do note
+        TimedNote{MidiPitch,Float64}(pitch(note), convert(Float64, onset(note)), convert(Float64, offset(note)))
+    end
+    sgs = unsimskipgrams(unsims(notes, convert(Float64, k1), voices),
+                         convert(Float64, k2), stages, p)
+    counts = countschemas(sgs)
+    println("done with  ", id)
+    counts
+end
+
 function countpiecesschemas(pieces, voices, k1, stages, k2, p)
     counts(id) = Unsims.countpieceschemas(id, voices, k1, stages, k2, p)
     reduce((a,b) -> merge!(+, a, b),
@@ -74,6 +86,12 @@ end
 
 function countpiecesschemasflex(pieces, voices, stages, finkenskip, p)
     counts(piece) = Unsims.countpieceschemas(piece[1], voices, finkenskip*piece[2], stages, finkenskip*piece[2], p)
+    reduce((a,b) -> merge!(+, a, b),
+           pmap(counts, pieces))
+end
+
+function countpiecesschemasbars(pieces, voices, stages, p)
+    counts(piece) = Unsims.countpieceschemaswholes(piece[1], voices, piece[2], stages, piece[2]*stages, p)
     reduce((a,b) -> merge!(+, a, b),
            pmap(counts, pieces))
 end
