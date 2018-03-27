@@ -2,6 +2,7 @@ module Unsims
 
 using DigitalMusicology
 using DigitalMusicology.Helpers.witheltype
+import MIDI
 
 import FunctionalCollections
 #using IterTools: imap
@@ -12,6 +13,16 @@ using .SchemaTrie
 
 export countpiecesschemas, countpiecesschemas, rankcounts, topranks
 export unsims, unsimskipgrams, schemacandify, countmapby
+export piecebarlen, countpieceschemaswhole, countpiecesschemasbars
+
+function piecebarlen(piece)
+    fn = piecepath(piece, "midi-norep", ".mid")
+    midi = MIDI.readMIDIfile(fn)
+    foreach(MIDI.toabsolutetime!, midi.tracks)
+    uptrack = MidiFiles.uptype(midi.tracks[1])
+    sig = map(tsme -> tsme.ev.sig, filter(ev -> typeof(ev.ev) == MidiFiles.TimeSignatureME, uptrack))[1]
+    sig.num//sig.denom
+end
 
 unsims(notes, maxioi, n, p=1.0) =
     skipgrams(notes, Float64(maxioi), n, onsetcost, stable=true, p=p)
