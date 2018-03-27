@@ -42,9 +42,22 @@ ranks = Unsims.rankcounts(counts);
 
 Unsims.topranks(ranks, 50)
 
-@time counts = Unsims.countpieceschemaswholes("sonata03-2", 3, 0.375, 4, 1.5, 0.000000001)
+@time counts = Unsims.countpieceschemaswholes("sonata03-1", 3, 0.5, 4, 0.5, 0.00001, 0.1)
 
-@time counts = Unsims.countpiecesschemasbars(pieces[1:3], 3, 4, 0.000001)
+# 03-2
+# 3x4, p=1e-8: 9833, 185s
+# 3x4, p=1e-9: 270, 113s
+# 2x4, p=1e-5: 30000, 11s
+# 03-1
+# 2x4, p=1e-5: 2e6, 600s
+# 3x4, p=1e-10: DEATH
+# 3x4, p=1e-7, p1=0.1: 8625, 54s
+# 3x4, p=1e-6, p1=0.1: 88833, 114s
+# 3x4, p=1e-6, p1=0.2: 1.2e6, 600s
+# 3x4, p=1e-4, p1=0.1: 8e6, 1900s
+# 3x4, p=1e-5, p1=0.1: 8e5, 509s
+
+@time counts = Unsims.countpiecesschemasbars(pieces, 2, 4, 0.00001)
 
 # notelist_span(ns::Vector{TimedNote{P,T}}) where {P,T} =
 #     maximum(map(offset, ns)) - minimum(map(onset, ns))
