@@ -1,4 +1,4 @@
-addprocs([("chfin-tp", :auto)])
+#addprocs([("chfin-tp", :auto)])
 #addprocs([("128.179.133.166", :auto)])
 
 addprocs()
@@ -48,7 +48,7 @@ ranks = Unsims.rankcounts(counts);
 
 Unsims.topranks(ranks, 50)
 
-@time counts = Unsims.countpieceschemaswholes("sonata03-1", 3, 0.5, 3, 0.5, 1.0e-6, 1.0)
+@time counts = Unsims.countpieceschemaswholes("sonata03-1", 3, 0.5, 2, 0.5, 1.0e-9, 1.0)
 
 # 03-2
 # 3x4, p=1e-8: 9833, 185s
@@ -56,16 +56,18 @@ Unsims.topranks(ranks, 50)
 # 2x4, p=1e-5: 30000, 11s
 # 03-1
 # 2x2, p=1e-3: 7e3, 24s
+# 2x3, p=1e-4: 1.3e5, 70s
+# 2x3, p=1e-3: 1.3e6, 203s -> ok on all
 # 2x4, p=1e-5: 2e6, 600s -> DEATH on all pieces
 # 2x4, p=1e-6: 2e5, 90s
+# 3x2, p=1, p1=0.1: 4e6, 40s
+# 3x3, p=1e-9: 
 # 3x4, p=1e-10: DEATH
 # 3x4, p=1e-7, p1=0.1: 8625, 54s
 # 3x4, p=1e-6, p1=0.1: 88833, 114s
 # 3x4, p=1e-6, p1=0.2: 1.2e6, 600s
 # 3x4, p=1e-4, p1=0.1: 8e6, 1900s
 # 3x4, p=1e-5, p1=0.1: 8e5, 509s
-# 2x3, p=1e-4: 1.3e5, 70s
-# 2x3, p=1e-3: 1.3e6, 203s -> ok on all
 
 @time counts = Unsims.countpiecesschemasbars(pieces, 2, 4, 0.00001)
 
