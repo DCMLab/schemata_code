@@ -153,3 +153,26 @@ Idea 2:
 - can we sample l based on available prefixes such that 'N ≤' becomes 'E[N] ='?
 
 #  LocalWords:  skipgrams skipgram
+
+* Applying skipgrams to music
+
+** Method
+
+- input: stream of notes, ordered by onset
+- 1st pass (over input): vertical structure
+  - overlap allowed
+  - cost = total onset difference
+- 2nd pass (over 1st): horizontal structure
+  - overlap not allowed
+  - cost = max onset difference (step function)
+- output: count occurrences
+
+- equivalences:
+  - order by (absolute) pitch
+  - oct: pitch classes
+  - transp: relative to first bass note (_1_1 is always 0)
+
+- parameters:
+  - n_voices, n_stages from 2x2 to 3x4 and 4x3 (maybe)
+    - p adapted to size
+  - k_v, k_s, both 1 bar
