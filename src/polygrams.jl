@@ -157,4 +157,36 @@ function findfirsthoriz(vitr, pattern, k::Float64, p=0.1^(length(pattern)-1))
     first(skipgrams(vitr, k, n, groupdist, prefixpred, p=p))
 end
 
+makefsa(schemas) = nothing
+
+partialmatch(cand, schemas) = nothing
+
+schemamatches(notes, schema::Vector{Vector{MidiPitch}}, k1, k2) =
+    schemamatches(notes, [schema], k1, k2)
+
+function schemamatches(notes, schemas::Vector{Vector{Vector{MidiPitch}}}, k1, k2, p2=1.0)
+    nv = length(schemas[1][1]) # voices
+    ns = length(schemas[1])    # stages
+
+    if !all(schema -> all(s -> length(s) == nv, schema), schemas)
+        error("All schemata must have the same number of voices")
+    end
+    if !all(schema -> length(schema) == ns, schemas)
+        error("All schemata must have the same number of stages")
+    end
+
+    fsa = makefsa(schemas)
+
+    uonset(u)  = onset(u[1]) # verticals are sorted by onset
+    uoffset(u) = maximum(map(offset, u)) # but not by offset
+    groupdist(u1, u2) = uonset(u2) - uoffset(u1)
+    nooverlap(pfx) = uonset(FC.head(pfx)) >= uoffset(FC.head(FC.tail(pfx)))
+    function prefixpred(pfx::FC.plist{T}) where T
+        pfxcand = schemarep(reverse(collect(T,pfx)))
+        nooverlap(pfx) && partialmatch(pfxcand, fsa)
+    end
+
+    skipgrams(verticals(notes, k1, nv), k2, ns, groupdist, prefixpred, p=p)
 end
+
+end # module
