@@ -3,9 +3,9 @@ module Automata
 using IterTools: subsets
 import Base: show
 
-export compile, initial, nextstate, accepts
-export match, prefixmatch
-export DFA, NFA
+export compile, initial, nextstate, isaccepting
+export accepts, preaccepts
+export DFA, NFA, words2nfa
 export showdot, todot, savedot
 
 # Automaton Interface
@@ -91,7 +91,53 @@ struct DFA{S,A}
     trans  :: Dict{Tuple{S,A},S}
 end
 
-compile(dfa::DFA) = dfa
+# minimizes the automaton
+function compile(dfa::DFA{S,A}) where {S,A}
+    alphabet = Set(symb for ((_,symb), to) in dfa.trans)
+    states = Set(to for (_, to) in dfa.trans)
+    push!(states, dfa.init)
+    partition = Set([
+        dfa.finals,
+        setdiff(states, dfa.finals)
+    ])
+    agenda = Set([dfa.finals])
+
+    while !isempty(agenda)
+        target = pop!(agenda)
+        for symb in alphabet
+            newpart = Set{Set{S}}()
+            for sub in partition
+                leads = filter(sub) do st
+                    haskey(dfa.trans, (st, symb)) && dfa.trans[(st, symb)] ∈ target
+                end
+                leadsnot = setdiff(sub, leads)
+                if !isempty(leads) && !isempty(leadsnot)
+                    push!(newpart, leads)
+                    push!(newpart, leadsnot)
+                    if sub ∈ agenda
+                        delete!(agenda, sub)
+                        push!(agenda, leads)
+                        push!(agenda, leadsnot)
+                    else
+                        push!(agenda, length(leads) <= length(leadsnot) ? leads : leadsnot)
+                    end
+                else
+                    push!(newpart, sub)
+                end
+            end
+            partition = newpart
+        end
+    end
+    
+    statemap = Dict(s => first(first(filter(sub -> s ∈ sub, partition))) for s in states)
+    equivify(state) = statemap[state]
+    
+    init = equivify(dfa.init)
+    finals = map(equivify, dfa.finals)
+    trans = Dict((equivify(from), symb) => equivify(to)
+                 for ((from, symb), to) in dfa.trans)
+    DFA{S,A}(init, finals, trans)
+end
 
 initial(dfa::DFA{S,A}) where {S,A} = dfa.init
 

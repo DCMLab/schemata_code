@@ -11,12 +11,15 @@ FC = FunctionalCollections
 include("trie2.jl")
 using .SchemaTrie
 
+include("fsa.jl")
+using .Automata
+
 export verticals, horizontals
 export schemarep, countmapby, countschemas
 export countpiecesschemassecs, countschemassecs
 export piecebarlen, countschemaswhole, countpiecesschemasbars
 export rankcounts, topranks
-export findfirsthoriz, matchschemata
+export findfirsthoriz, schemamatches
 
 # generate polygrams
 # ==================
@@ -157,9 +160,9 @@ function findfirsthoriz(vitr, pattern, k::Float64, p=0.1^(length(pattern)-1))
     first(skipgrams(vitr, k, n, groupdist, prefixpred, p=p))
 end
 
-makefsa(schemas) = nothing
+makefsa(schemas) = compile(words2nfa(schemas))
 
-partialmatch(cand, schemas) = nothing
+partialmatch(cand, fsa) = preaccepts(fsa, cand)
 
 schemamatches(notes, schema::Vector{Vector{MidiPitch}}, k1, k2) =
     schemamatches(notes, [schema], k1, k2)
@@ -186,7 +189,7 @@ function schemamatches(notes, schemas::Vector{Vector{Vector{MidiPitch}}}, k1, k2
         nooverlap(pfx) && partialmatch(pfxcand, fsa)
     end
 
-    skipgrams(verticals(notes, k1, nv), k2, ns, groupdist, prefixpred, p=p)
+    skipgrams(verticals(notes, k1, nv), Float64(k2), ns, groupdist, prefixpred, p=p2)
 end
 
 end # module
