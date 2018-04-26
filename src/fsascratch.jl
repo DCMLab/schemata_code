@@ -18,8 +18,9 @@ include("polygrams.jl")
 prinner = @midi [[0, 4], [11, 2], [9, 0], [7, 11]]
 fonte = @midi [[0, 6], [1, 4], [10, 4], [11, 3]]
 
-pieceid = "sonata03-2"
-notes = getpiece(pieceid, :notes_wholes)
-barlen = Polygrams.piecebarlen(pieceid)
+pieceid = "sonata03-2";
+notes = getpiece(pieceid, :notes_wholes);
+barlen = Polygrams.piecebarlen(pieceid);
 
-schemata = Polygrams.schemamatches(notes, [prinner, fonte], barlen, barlen)
+schemata = Polygrams.schemamatches(notes, [prinner, fonte], barlen, barlen);
+polys = collect(schemata)
