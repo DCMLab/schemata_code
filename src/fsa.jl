@@ -35,10 +35,10 @@ Returns the next state of the automaton from the current state.
 For automata that traverse the input once, the next symbol is provided here
 For decision automata, the returned value is only the next state.
 For transducers, the returned value is a tuple (next, output).
-The result is wrapped in a `Nullable`, which `isnull` if there is no legal transition
+The result is `nothing` if there is no legal transition
 from that state (and the given input, if applicable).
 This case is equivalent to failure (or rejection),
-so rejection states are modeled implicitely as `Nullable()`.
+so rejection states are modeled implicitely as `nothing`.
 """
 function nextstate end
 
@@ -133,7 +133,7 @@ function compile(dfa::DFA{S,A}) where {S,A}
     equivify(state) = statemap[state]
     
     init = equivify(dfa.init)
-    finals = map(equivify, dfa.finals)
+    finals = Set(equivify(f) for f in dfa.finals)
     trans = Dict((equivify(from), symb) => equivify(to)
                  for ((from, symb), to) in dfa.trans)
     DFA{S,A}(init, finals, trans)
@@ -143,9 +143,9 @@ initial(dfa::DFA{S,A}) where {S,A} = dfa.init
 
 nextstate(dfa::DFA{S,A}, state::S, input::A) where {S,A} =
     if haskey(dfa.trans, (state, input))
-        Nullable(dfa.trans[(state, input)])
+        dfa.trans[(state, input)]
     else
-        Nullable{S}()
+        nothing
     end
 
 isaccepting(dfa::DFA{S,A}, state::S) where {S,A} =
@@ -153,23 +153,23 @@ isaccepting(dfa::DFA{S,A}, state::S) where {S,A} =
 
 function partialmatch(dfa::DFA{S,A}, input) where {S,A}
     state = initial(dfa)
-    newst = Nullable{S}()
+    newst = nothing
     for i in input
         newst = nextstate(dfa, state, i)
-        if isnull(newst)
-            return newst
+        if newst == nothing
+            return nothing
         else
-            state = get(newst)
+            state = newst
         end
     end
     newst
 end
 
-preaccepts(dfa::DFA, input) = !isnull(partialmatch(dfa, input))
+preaccepts(dfa::DFA, input) = (partialmatch(dfa, input)) != nothing
 
 function accepts(dfa::DFA, input)
     state = partialmatch(dfa, input)
-    if isnull(state)
+    if state == nothing
         return false
     else
         isaccepting(dfa, get(state))
@@ -243,7 +243,7 @@ function compile(nfa::NFA{S,A}) where {S,A}
     while !isempty(agenda)
         st = pop!(agenda)
         sti = intify(st)
-        transfromst = filter((from, to) -> from[1] ∈ st, nfa.trans)
+        transfromst = filter(edge -> edge.first[1] ∈ st, nfa.trans)
         symbols = Set(from[2] for (from, to) in transfromst)
         for symb in symbols
             nextst = reduce(∪, [to for (from, to) in transfromst if from[2] == symb])

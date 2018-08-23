@@ -1,12 +1,12 @@
 module Polygrams
 
 using DigitalMusicology
-using DigitalMusicology.Helpers.witheltype
+using DigitalMusicology.Helpers: witheltype
 import MIDI
 
 import DataFrames
 DF = DataFrames
-import JLD
+# import JLD
 import FileIO
 
 using FunctionalCollections
@@ -264,33 +264,57 @@ function sortbyweight(polys, weight)
     sort!(weighted, rev=true, by=x->x[2])
 end
 
-function bestmatches(compat, wpolys::Vector{Tuple{P,N}}) where {P,N}
+function bestmatches(compat, sortedpolys::Vector{P}) where {P}
+    i = 0
     results = P[]
-    for (poly, score) in wpolys
-        if all(other -> compat(poly, other), results)
+    for poly in sortedpolys
+        if all(other -> compat(poly, other), sortedpolys[1:i])
             push!(results, poly)
         end
+        i += 1
     end
     results
 end
 
-totalduration(poly) =
-    sum(s -> sum(duration, s), poly)
+findcompetitor(iscompet, poly, others) =
+    others[findfirst(o -> iscompet(poly, o), others)]
 
-voicedist(poly) =
-    sum(1:(length(poly)-1)) do s
-        sum(1:length(poly[s])) do v
-            abs(convert(Int, pitch(poly[s+1][v])) -
-                convert(Int, pitch(poly[s][v])))
+totalduration(poly) =
+    sum(stage -> sum(duration, stage), poly)
+
+instageskip(poly) =
+    sum(stage -> onsetcost(stage[1], stage[end]), poly)
+
+function sortschema(notes::Vector{Vector{N}}) where {N<:Note}
+    cand = map(pitches, notes) # extract pitches from timed notes
+    map(sort!, cand)           # sort pitch groups (lowest to highest)
+    ref = cand[1][1]           # transpose -> reference pitch = 0, pc(...):
+    for i in 1:length(cand)
+        for j in 1:length(cand[i])
+            cand[i][j] = cand[i][j] - ref
         end
     end
+    cand
+end
+
+function voicedist(poly)
+    rep = sortschema(poly)
+    sum(1:(length(rep)-1)) do s
+        sum(1:length(rep[s])) do v
+            abs(convert(Int, rep[s+1][v] - rep[s][v]))
+        end
+    end
+end
+
+polymweight(poly, tsm) =
+    sum(stage -> sum(note -> metricweight(onset(note), tsm), stage), poly)
 
 # Saving and Loading Polygrams
 # ============================
 
-savepolys(fn, polys) = JLD.save(FileIO.File(FileIO.format"JLD", fn), "polygrams", polys)
+savepolys(fn, polys) = FileIO.save(fn, "polygrams", polys)
 
-loadpolys(fn) = JLD.load(fn, "polygrams")
+loadpolys(fn) = FileIO.load(fn, "polygrams")
 
 # function polystodf(polys::Vector{Vector{Vector{Note{P,T}}}}) where {P,T}
 #     df = DataFrame([Int, Int, P, T, T])

@@ -1,0 +1,12 @@
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DigitalMusicology = "2c2a18ac-9fc9-11e8-3acf-35f06862b736"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+FunctionalCollections = "de31a74c-ac4f-5751-b3fd-e18cd04993ca"
+IterTools = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+MIDI = "f57c4921-e30c-5f49-b073-3f2f2ada663e"
+MusicologyPlots = "c9d89ec8-a6c4-11e8-1629-537f3e81f650"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Rsvg = "c4c386cf-5103-5370-be45-f3a111cca3b8"
+VegaLite = "112f6efa-9a02-5b7d-90c0-432ed331239a"

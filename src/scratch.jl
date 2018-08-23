@@ -119,3 +119,14 @@ iscompat(u1, u2) = maximum(map(offset, u1)) <= minimum(map(offset, u2))
 hasrepeat(cand) = any(i -> cand[i] == cand[i+1], 1:(length(cand)-1))
 
 hasmorethanthree(cand) = length(Set(vcat(cand...))) > 3
+
+##
+
+pieceId = "sonata15-1"
+notes = getpiece(pieceId, :notes_wholes)
+barlen = Float64(Polygrams.piecebarlen(pieceId))
+
+verts = Polygrams.verticals(notes, barlen, 2, 1.0)
+polysItr = Polygrams.horizontals(verts, barlen, 2, 1.0)
+
+itrlen(itr) = reduce((acc, x) -> acc+1, 0, itr)

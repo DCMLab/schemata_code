@@ -15,8 +15,8 @@ using Revise
 using DigitalMusicology
 DigitalMusicology.usekern("/home/chfin/Uni/phd/data/csapp/mozart-piano-sonatas/");
 
-using Plots; plotly()
-using MusicologyPlots
+# using Plots; plotly()
+using MusicologyPlots.VegaPlots
 
 include("src/polygrams.jl")
 
