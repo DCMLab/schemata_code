@@ -201,14 +201,15 @@ function markschemas(notes, schemas)
 end
 
 function annotationview(pieceid, schemaids, weights;
-                        lexicon="../data/lexicon_flat.json", annotdir="../data/autoannot/")
+                        lexicon=projectdir("data", "lexicon_flat.json"),
+                        annotdir=projectdir("data", "autoannot"))
     lex = loadlexicon(lexicon)
-    schemata = map(s -> lex[s], schemaids)
+    schemata = Dict(sid => lex[sid] for sid in schemaids)
     schemadict = Dict(lex[sid] => sid for sid in schemaids)
     notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights)
     
     match = matchinteractive(notes, sorted)
-    mark = markschemas(notes, schemata)
+    mark = markschemas(notes, values(schemata))
 
     function mkhls(matched, marked)
         mtd = vcat(map(polynotes,matched)...)
@@ -223,15 +224,15 @@ function annotationview(pieceid, schemaids, weights;
     on(savebtn) do _
         allmatches = collect(mark[])
         union!(allmatches, match[])
-        annots = Dict()
-        for poly in allmatches
-            sid = schemadict[schemarep(poly)]
-            if haskey(annots, sid)
-                push!(annots[sid], poly)
-            else
-                annots[sid] = [poly]
-            end
-        end
+        annots = grouppolys(allmatches, schemadict)
+        # for poly in allmatches
+        #     sid = schemadict[schemarep(poly)]
+        #     if haskey(annots, sid)
+        #         push!(annots[sid], poly)
+        #     else
+        #         annots[sid] = [poly]
+        #     end
+        # end
 
         for (sid, polys) in annots
             saveannots(pieceid, sid, polys, annotdir)

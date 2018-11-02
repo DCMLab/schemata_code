@@ -157,6 +157,14 @@ end
 # --------------------
 
 """
+    grouppolys(polys, schemadict)
+
+Takes a list of polygrams and a dictionary from schema prototypes to ids.
+Returns a dictionary from schema ids to lists of polygrams conforming to the corresponding prototype.
+"""
+grouppolys(polys, schemadict) = groupby(p -> schemadict[schemarep(p)], polys)
+
+"""
     matchpiece(pieceid, schemata; params=[1, -1//12, -2], corpus=getcorpus())
 
 Matches `schemata` on the notes of `pieceid`, using the parameters `params`.
@@ -165,11 +173,15 @@ and `polys` is the list of matching polygrams sorted by their match score (best 
 `model` is a tuple of the form `(features, keys, modelform)`
 that can be used to fit the heuristic parameters.
 """
-function matchpiece(pieceid, schemata; params=[1, -1//12, -2], corpus=getcorpus())
+function matchpiece(pieceid, schemata;
+                    params=[1, -1//12, -2], corpus=getcorpus(),
+                    ignorecache=false, overwritecache=false, cachedir=projectdir("data", "polys"))
+    # load piece
     notes = getpiece(pieceid, :notes_wholes, corpus);
     barlen = piecebarlen(pieceid);
     timesigs = getpiece(pieceid, :timesigs);
 
+    # set up heuristics
     beatfactor = denominator(content(timesigs[1]))
     featurefs = [
         poly -> beatfactor * Polygrams.totalduration(poly), # duration
@@ -178,13 +190,60 @@ function matchpiece(pieceid, schemata; params=[1, -1//12, -2], corpus=getcorpus(
         #, poly -> Polygrams.polymweight(poly, timesigs) # metric weight
     ]
     featurekeys = [:dur, :vdist, :skip]
-#    modelform = @formula(label ~ dur + vdist + skip)
-    
-    polyitr = Polygrams.schemamatches(notes, schemata, barlen, barlen);
-    polys = collect(polyitr);
-    length(polys)
-    
-    sorted = Polygrams.sortbyheuristics(polys, featurefs, params);
+    # modelform = @formula(label ~ dur + vdist + skip)
 
+    # cache filenames
+    escid = replace(pieceid, r"[\\/]" => s"_")
+    cachefn(schemaid) = joinpath(cachedir, "$(escid)_$(schemaid).jld2")
+    if !isdir(cachedir)
+        mkpath(cachedir, mode=0o770) # ensure cachedir path exists
+    end
+    
+    # retrieve matches
+    missingschemas = valtype(schemata)[]
+    polys = nothing
+    for (schemaid, schema) in schemata
+        fn = cachefn(schemaid)
+        if isfile(fn) && !ignorecache
+            @info "loading $escid, $schemaid from cache"
+            loaded = loadpolys(fn)
+            if polys == nothing
+                polys = loaded
+            else
+                append!(polys, loaded)
+            end
+        else
+            @info "need to recompute polys for $escid, $schemaid"
+            push!(missingschemas, schema)
+        end
+    end
+
+    # generate missing polygrams
+    if !isempty(missingschemas)
+        @info "recomputing schemata" missingschemas
+        polyitr = Polygrams.schemamatches(notes, missingschemas, barlen, barlen)
+        missingpolys = collect(polyitr)
+        if polys == nothing
+            polys = missingpolys
+        else
+            append!(polys, missingpolys)
+        end
+    
+        # save missing polygrams
+        @info "grouping recomputed polys"
+        groupedpolys = grouppolys(missingpolys, Dict(proto => id for (id, proto) in schemata))
+        for (schemaid, polys) in groupedpolys
+            fn = cachefn(schemaid)
+            if !isfile(fn) || overwritecache
+                @info "saving new cache entry for $(escid), $(schemaid)"
+                savepolys(fn, polys)
+            end
+        end
+    end
+
+    # sort all polygrams using heuristics
+    sorted = Polygrams.sortbyheuristics(polys, featurefs, params)
+
+    # return everything
     (notes, sorted, (featurefs, featurekeys)) #, modelform))
 end

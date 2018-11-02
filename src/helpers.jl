@@ -16,3 +16,21 @@ foldr(op, lst::plist{T}) where T =
     else
         op(head(lst), foldr(op, tail(lst)))
     end
+
+projectdir(args...) = joinpath(@__DIR__, "..", args...)
+
+function groupby(f, xs)
+    # guess type of keys
+    ktype = typeof(f(first(xs)))
+    
+    out = Dict{ktype,Vector{eltype(xs)}}()
+    for x in xs
+        key = f(x)
+        if haskey(out, key)
+            push!(out[key], x)
+        else
+            out[key] = [x]
+        end
+    end
+    out
+end
