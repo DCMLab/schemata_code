@@ -16,6 +16,11 @@ partialmatch(cand, fsa) = preaccepts(fsa, cand)
 schemamatches(notes, schema::Vector{Vector{MidiPitch}}, k1, k2) =
     schemamatches(notes, [schema], k1, k2)
 
+function relatives(ps::Vector{T}) where T
+    ref = ps[1]
+    map(p -> pc(p-ref), ps[2:end])
+end
+
 function schemamatches(notes, schemas::Vector{Vector{Vector{MidiPitch}}}, k1, k2, p2=1.0)
     nv = length(schemas[1][1]) # voices
     ns = length(schemas[1])    # stages
@@ -27,24 +32,22 @@ function schemamatches(notes, schemas::Vector{Vector{Vector{MidiPitch}}}, k1, k2
         error("All schemata must have the same number of stages")
     end
 
-    fsa = makefsa(schemas)
-
-    # uonset(u)  = onset(u[1]) # verticals are sorted by onset
-    # uoffset(u) = maximum(map(offset, u)) # but not by offset
-    # groupdist(u1, u2) = uonset(u2) - uoffset(u1)
-    # nooverlap(pfx) = uonset(FC.head(pfx)) >= uoffset(FC.head(FC.tail(pfx)))
-    # uonset(u)  = onset(u[1]) # verticals are sorted by onset
-    # uoffset(u) = maximum(map(offset, u)) # but not by offset
-    # groupdist(u1, u2) = let dist = onset(u2[1]) - onset(u1[1])
-    #     dist > k2 ? (k2+1) : 0
-    # end
-    # nooverlap(pfx) = uonset(FC.head(pfx)) >= uoffset(FC.head(FC.tail(pfx)))
-    function prefixpred(pfx::plist{T}) where T
+    vertfsa = makefsa(map(relatives, vcat(schemas...)))
+    horifsa = makefsa(schemas)
+    
+    function vertpred(pfx::plist{T}) where T
+        pfxrels = relatives(sort!(pitch.(collect(T,pfx))))
+        partialmatch(pfxrels, vertfsa)
+    end
+    
+    function horipred(pfx::plist{T}) where T
         pfxcand = schemarep(reverse(collect(T,pfx)))
-        nooverlap(pfx) && partialmatch(pfxcand, fsa)
+        nooverlap(pfx) && partialmatch(pfxcand, horifsa)
     end
 
-    skipgrams(verticals(notes, k1, nv), Float64(k2), ns, groupdist(k2), prefixpred, p=p2)
+    verts = skipgrams(notes, Float64(k1), nv, onsetcost, vertpred, stable=true)
+    #skipgrams(verticals(notes, k1, nv), Float64(k2), ns, groupdist(k2), horipred, p=p2)
+    skipgrams(verts, Float64(k2), ns, groupdist(k2), horipred, p=p2)
 end
 
 polyssharenotes(poly1, poly2) =
