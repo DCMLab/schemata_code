@@ -206,6 +206,7 @@ function annotationview(pieceid, schemaids, weights;
     lex = loadlexicon(lexicon)
     schemata = Dict(sid => lex[sid] for sid in schemaids)
     schemadict = Dict(lex[sid] => sid for sid in schemaids)
+    barlen = piecebarlen(pieceid)
     notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights)
     
     match = matchinteractive(notes, sorted)
@@ -239,29 +240,39 @@ function annotationview(pieceid, schemaids, weights;
         end
     end
     
-    vbox(dom"h2.title.is-2"("Automatic Matcher"), match,
+    vbox(dom"h1.title.is-1"("Annotating $pieceid: $schemaids"), "Bar length: $barlen",
+         dom"h2.title.is-2"("Automatic Matcher"), match,
          dom"h2.title.is-2"("Manual Annotations"), mark,
          dom"h2.title.is-2"("Overview"), overview,
          savebtn)
 end
 
-function annotate(;corpus=getcorpus(), lexicon="data/lexicon_flat.json")
-    ids = dropdown(merge!(OrderedDict("Select Piece..." => ""),
-                          OrderedDict(id => id for id in allpieces(corpus))),
-                  label="Piece:")
-    schemas = dropdown(merge(OrderedDict("Select Schema" => Vector{MidiPitch}[]),
-                             sort(loadlexicon(lexicon))),
-                       label="Schema:")
-    load = button("Load")
-
-    matcherwdg = map(load) do _
-        if !(ids[] == "" || schemas[] == [])
-            notes, polys, _ = matchpiece(ids[], [schemas[]])
-            matchinteractive(notes, polys)
-        end
-    end
+function exploreview(pieceid, schemaids, weights;
+                     lexicon=projectdir("data", "lexicon_flat.json"))
+    lex = loadlexicon(lexicon)
+    schemata = Dict(sid => lex[sid] for sid in schemaids)
+    # schemadict = Dict(lex[sid] => sid for sid in schemaids)
+    barlen = piecebarlen(pieceid)
+    notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights)
     
-    vbox(hbox(ids, schemas, load), matcherwdg)
+    match = matchinteractive(notes, sorted)
+
+    function mkrating(poly)
+        ext = polyrange(poly)
+        (onset=ext[1], offset=ext[2], score=rate(poly, features, weights))
+    end
+    ratings = mkrating.(sorted)
+    wratings = ratingswdg(ratings)
+
+    Observables.@map! wratings[:highlights] [mkrating.(&match)]
+    
+    dhist = polydensities(polyrange.(sorted), notes=notes)
+    wdens = polydensitywdg(dhist)
+    
+    vbox(dom"h1.title.is-1"("Exploring $pieceid: $schemaids"), "Bar length: $barlen",
+         dom"h2.title.is-2"("Automatic Matcher"), match,
+         dom"h2.title.is-2"("Ratings"), wratings,
+         dom"h2.title.is-2"("Density"), wdens)
 end
 
 function polyserve(app; host=Mux.ip"127.0.0.1", port=8000)
@@ -280,3 +291,22 @@ function polyserve(app; host=Mux.ip"127.0.0.1", port=8000)
 
     Mux.serve(http, websock, host, port)
 end
+
+# function annotate(;corpus=getcorpus(), lexicon="data/lexicon_flat.json")
+#     ids = dropdown(merge!(OrderedDict("Select Piece..." => ""),
+#                           OrderedDict(id => id for id in allpieces(corpus))),
+#                   label="Piece:")
+#     schemas = dropdown(merge(OrderedDict("Select Schema" => Vector{MidiPitch}[]),
+#                              sort(loadlexicon(lexicon))),
+#                        label="Schema:")
+#     load = button("Load")
+
+#     matcherwdg = map(load) do _
+#         if !(ids[] == "" || schemas[] == [])
+#             notes, polys, _ = matchpiece(ids[], [schemas[]])
+#             matchinteractive(notes, polys)
+#         end
+#     end
+    
+#     vbox(hbox(ids, schemas, load), matcherwdg)
+# end
