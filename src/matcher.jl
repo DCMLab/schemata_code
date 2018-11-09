@@ -181,8 +181,8 @@ function matchpiece(pieceid, schemata;
                     ignorecache=false, overwritecache=false, cachedir=projectdir("data", "polys"))
     # load piece
     notes = getpiece(pieceid, :notes_wholes, corpus);
-    barlen = piecebarlen(pieceid);
-    timesigs = getpiece(pieceid, :timesigs);
+    barlen = piecebarlen(pieceid, corpus);
+    timesigs = getpiece(pieceid, :timesigs, corpus);
 
     # set up heuristics
     beatfactor = denominator(content(timesigs[1]))

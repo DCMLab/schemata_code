@@ -60,8 +60,8 @@ function schemarep(notes::Vector{Vector{N}}) where {N<:Note}
     cand
 end
 
-function piecebarlen(piece)
-    fn = piecepath(piece, "midi-norep", ".mid") # specific to mozart corpus
+function piecebarlen(piece, corpus=getcorpus())
+    fn = piecepath(piece, "midi-norep", ".mid", corpus) # specific to mozart corpus
     midi = MIDI.readMIDIfile(fn)
     foreach(MIDI.toabsolutetime!, midi.tracks)
     uptrack = MidiFiles.uptype(midi.tracks[1])

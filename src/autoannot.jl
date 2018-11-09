@@ -5,6 +5,12 @@ using Mux
 
 jsdep(dep) = joinpath(@__DIR__, "..", "deps", dep)
 
+"""
+    level(items)
+    level(items...)
+
+Takes a list of dom elements and wraps them in bulma.css' level elements (left-aligned).
+"""
 level(items) = dom"div.level"(dom"div.level-left"(map(dom"div.level-item", items)...))
 level(items...) = level(items)
 
@@ -41,6 +47,14 @@ function ratingswdg(ratings; highlights=[])
                  scope=scp, layout=lay)
 end
 
+"""
+    polydensities(ranges)
+
+Takes a list of tuples `(onset, offset)` indicating the range of a polygram.
+Returns a list of named tuples `(onset, offset, count)`
+indicating how many polygrams occur in any span of time.
+Timespans with zero polygrams are implicit and not returned.
+"""
 function polydensities(ranges; notes=nothing)
     # find breaks
     breaks = Set()
@@ -79,6 +93,13 @@ testdata = [
     (onset=3, offset=3.5, value=12)
 ];
 
+"""
+    polydensitywdg(hist)
+
+Takes a list of named tuples `(onset, offset, values)`
+which are interpreted as a histogram with uneven bins.
+Returns an Interact widget that displays this histogram.
+"""
 function polydensitywdg(hist)
     scp = Scope(imports=[jsdep("vega@4.2.0.js"),
                          jsdep("vega-lite@3.0.0-rc6.js"),
@@ -200,14 +221,17 @@ function markschemas(notes, schemas)
                       dom"div"(table, style=Dict("width"=>"25%")))
 end
 
-function annotationview(pieceid, schemaids, weights;
+function annotateview(pieceid, schemaids, weights;
                         lexicon=projectdir("data", "lexicon_flat.json"),
-                        annotdir=projectdir("data", "autoannot"))
+                        annotdir=projectdir("data", "autoannot"),
+                        cachedir=projectdir("data", "polys"),
+                        corpus=getcorpus())
     lex = loadlexicon(lexicon)
     schemata = Dict(sid => lex[sid] for sid in schemaids)
     schemadict = Dict(lex[sid] => sid for sid in schemaids)
-    barlen = piecebarlen(pieceid)
-    notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights)
+    barlen = piecebarlen(pieceid, corpus)
+    notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights,
+                                                  corpus=corpus, cachedir=cachedir)
     
     match = matchinteractive(notes, sorted)
     mark = markschemas(notes, values(schemata))
@@ -240,20 +264,24 @@ function annotationview(pieceid, schemaids, weights;
         end
     end
     
-    vbox(dom"h1.title.is-1"("Annotating $pieceid: $schemaids"), "Bar length: $barlen",
-         dom"h2.title.is-2"("Automatic Matcher"), match,
-         dom"h2.title.is-2"("Manual Annotations"), mark,
-         dom"h2.title.is-2"("Overview"), overview,
-         savebtn)
+    dom"div.container"(dom"h1.title.is-1"("Annotating $pieceid: $(join(schemaids, ", "))"),
+                       "Bar length: $barlen",
+                       dom"h2.title.is-2"("Automatic Matcher"), match,
+                       dom"h2.title.is-2"("Manual Annotations"), mark,
+                       dom"h2.title.is-2"("Overview"), overview,
+                       savebtn)
 end
 
 function exploreview(pieceid, schemaids, weights;
-                     lexicon=projectdir("data", "lexicon_flat.json"))
+                     lexicon=projectdir("data", "lexicon_flat.json"),
+                     cachedir=projectdir("data", "polys"),
+                     corpus=getcorpus())
     lex = loadlexicon(lexicon)
     schemata = Dict(sid => lex[sid] for sid in schemaids)
     # schemadict = Dict(lex[sid] => sid for sid in schemaids)
-    barlen = piecebarlen(pieceid)
-    notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights)
+    barlen = piecebarlen(pieceid, corpus)
+    notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights,
+                                                  corpus=corpus, cachedir=cachedir)
     
     match = matchinteractive(notes, sorted)
 
@@ -269,10 +297,87 @@ function exploreview(pieceid, schemaids, weights;
     dhist = polydensities(polyrange.(sorted), notes=notes)
     wdens = polydensitywdg(dhist)
     
-    vbox(dom"h1.title.is-1"("Exploring $pieceid: $schemaids"), "Bar length: $barlen",
-         dom"h2.title.is-2"("Automatic Matcher"), match,
-         dom"h2.title.is-2"("Ratings"), wratings,
-         dom"h2.title.is-2"("Density"), wdens)
+    dom"div.container"(dom"h1.title.is-1"("Exploring $pieceid: $(join(schemaids, ", "))"),
+                       "Bar length: $barlen",
+                       dom"h2.title.is-2"("Automatic Matcher"), match,
+                       dom"h2.title.is-2"("Ratings"), wratings,
+                       dom"h2.title.is-2"("Density"), wdens)
+end
+
+"""
+    overview(corpora)
+
+Takes a dictionary `corpora` of the form  `id => (corpus, description)`,
+where `corpus` is a `Corpus` object, and `id` and `description` are strings.
+"""
+function overview(corpora; lexicon=projectdir("data", "lexicon_flat.json"))
+    rdcorpus = radiobuttons(OrderedDict(desc[2] => id for (id, desc) in corpora))
+    lex = loadlexicon(lexicon)
+    ckschemata = checkboxes(OrderedDict(schema => schema for schema in keys(lex)),
+                            value=[first(keys(lex))])
+
+    piecelinks = map(rdcorpus, ckschemata) do corpus, schemata
+        OrderedDict(id => "/$corpus/$id/$(join(schemata, ','))/" for id in allpieces(corpora[corpus][1]))
+    end
+
+    explorelinks = map(piecelinks) do plinks
+        links = [dom"a"(id, href="/explore"*href) for (id, href) in plinks]
+        vbox(dom"h2.title.is-2"("Explore"), links...)
+    end
+
+    annotatelinks = map(piecelinks) do plinks
+        links = [dom"a"(id, href="/annotate"*href) for (id, href) in plinks]
+        vbox(dom"h2.title.is-2"("Annotate"), links...)
+    end
+
+    
+    dom"div.container"(
+        dom"h1.title.is-1"("Overview"),
+        dom"p"("Select the corpus, piece, and schema that you want to look at:"),
+        hbox(vbox(rdcorpus, ckschemata), explorelinks, annotatelinks)
+    )
+end
+
+# type App = Request -> Response
+# type Middle = App -> Request -> Response
+# mux :: Middle -> App -> App
+# stack :: [Middle] -> Middle
+# branch :: (Request -> Bool) -> App -> Middle
+
+function logreq(app, req)
+    println(req)
+    app(req)
+end
+
+function exploreapp(corpora)
+    function (req)
+        piece = req[:params][:piece]
+        schemas = split(req[:params][:schemas], ',')
+        corpus = req[:params][:corpus]
+        exploreview(piece, schemas, [1, -1//12, -2];
+                    cachedir=projectdir("data", "polys", corpus),
+                    corpus=corpora[corpus][1])
+    end
+end
+
+function annotateapp(corpora)
+    function (req)
+        piece = req[:params][:piece]
+        schemas = split(req[:params][:schemas], ',')
+        corpus = req[:params][:corpus]
+        annotateview(piece, schemas, [1, -1//12, -2];
+                     cachedir=projectdir("data", "polys", corpus),
+                     corpus=corpora[corpus][1])
+    end
+end
+
+function schemaapp(corpora)
+    stack(
+        page("/", respond(overview(corpora))),
+        page("/explore/:corpus/:piece/:schemas/", exploreapp(corpora)),
+        page("/annotate/:corpus/:piece/:schemas/", annotateapp(corpora))
+    )
+    #stack(page(respond(overview(corpora))))
 end
 
 function polyserve(app; host=Mux.ip"127.0.0.1", port=8000)

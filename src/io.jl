@@ -7,7 +7,7 @@ loadpolys(fn) = FileIO.load(fn, "polygrams")
 
 function loadlexicon(fn)
     json = JSON.parsefile(fn, dicttype=DataStructures.OrderedDict)
-    Dict(name => map(midis,def) for (name,def) in json)
+    DataStructures.OrderedDict(name => map(midis,def) for (name,def) in json)
 end
 
 # helpers for saving 
