@@ -1,8 +1,15 @@
+#### autoannot.jl
+#### Interact widgets and web app code for annotation and exploration
 using Interact
 using Base.Iterators: partition
 using DataStructures
 using Mux
 
+"""
+    jsdep(dep)
+
+Returns the path of a javascript dependency.
+"""
 jsdep(dep) = joinpath(@__DIR__, "..", "deps", dep)
 
 """
@@ -103,7 +110,6 @@ Returns an Interact widget that displays this histogram.
 function polydensitywdg(hist)
     scp = Scope(imports=[jsdep("vega@4.2.0.js"),
                          jsdep("vega-lite@3.0.0-rc6.js"),
-                         #jsdep("vega-embed@3.19.2.js"),
                          jsdep("density.js")])
     id = string("density", rand(UInt))
 
@@ -115,7 +121,14 @@ function polydensitywdg(hist)
     wdg = Widget([]; scope=scp, layout=lay)
 end
 
-function matchinteractive(notes, sortedpolys)
+"""
+    matchinteractivewdg(notes, sortedpolys)
+
+Returns an interactive matching widget given a list of notes
+and a list of polygrams sorted by some score function.
+The widget's output is the list of matched polygrams.
+"""
+function matchinteractivewdg(notes, sortedpolys)
     best = Observable(bestmatches(!polyssharetime, sortedpolys))
     alternatives = nothing
     current = Observable(1)
@@ -162,12 +175,18 @@ function matchinteractive(notes, sortedpolys)
     
     wdg = Widget([:matches => matches], output=matches)
     controls = ["Match No.", prev, current, next, "Alternative:", altslider, ishit]
-    ctrldom = level(controls) # dom"div.level"(dom"div.level-left"(map(dom"div.level-item", controls)...))
-    @layout! wdg vbox(pr, ctrldom)
-                                         
+    ctrldom = level(controls)
+    @layout! wdg vbox(pr, ctrldom)                                         
 end
 
-function markschemas(notes, schemas)
+"""
+    markschemaswdg(notes, schemas)
+
+Returns a widget for marking schemata in a pianoroll plot.
+Takes a list of notes and a list of schema prototypes.
+The widget's output is the list of polygrams marked by the user.
+"""
+function markschemaswdg(notes, schemas)
     marked = Observable(SortedSet(Base.By(x->onset(x[1][1]))))
     highlighted = Observable([])
 
@@ -221,11 +240,17 @@ function markschemas(notes, schemas)
                       dom"div"(table, style=Dict("width"=>"25%")))
 end
 
+"""
+        annotateview(pieceid, schemaids, weights;
+                     lexicon, annotdir, cachedir, corpus)
+
+Returns a view for annotating schemata in a piece.
+"""
 function annotateview(pieceid, schemaids, weights;
-                        lexicon=projectdir("data", "lexicon_flat.json"),
-                        annotdir=projectdir("data", "autoannot"),
-                        cachedir=projectdir("data", "polys"),
-                        corpus=getcorpus())
+                      lexicon=projectdir("data", "lexicon_flat.json"),
+                      annotdir=projectdir("data", "autoannot"),
+                      cachedir=projectdir("data", "polys"),
+                      corpus=getcorpus())
     lex = loadlexicon(lexicon)
     schemata = Dict(sid => lex[sid] for sid in schemaids)
     schemadict = Dict(lex[sid] => sid for sid in schemaids)
@@ -233,8 +258,8 @@ function annotateview(pieceid, schemaids, weights;
     notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights,
                                                   corpus=corpus, cachedir=cachedir)
     
-    match = matchinteractive(notes, sorted)
-    mark = markschemas(notes, values(schemata))
+    match = matchinteractivewdg(notes, sorted)
+    mark = markschemaswdg(notes, values(schemata))
 
     function mkhls(matched, marked)
         mtd = vcat(map(polynotes,matched)...)
@@ -264,7 +289,8 @@ function annotateview(pieceid, schemaids, weights;
         end
     end
     
-    dom"div.container"(dom"h1.title.is-1"("Annotating $pieceid: $(join(schemaids, ", "))"),
+    dom"div.container"(dom"h1.title.is-1"("Annotating $pieceid"),
+                       "Schemata: $(join(schemaids, ", "))",
                        "Bar length: $barlen",
                        dom"h2.title.is-2"("Automatic Matcher"), match,
                        dom"h2.title.is-2"("Manual Annotations"), mark,
@@ -272,6 +298,12 @@ function annotateview(pieceid, schemaids, weights;
                        savebtn)
 end
 
+"""
+    exploreview(pieceid, schemaids, weights;
+                lexicon, cachedir, corpus)
+
+Returns a view for exploring schema matches in a piece.
+"""
 function exploreview(pieceid, schemaids, weights;
                      lexicon=projectdir("data", "lexicon_flat.json"),
                      cachedir=projectdir("data", "polys"),
@@ -283,7 +315,7 @@ function exploreview(pieceid, schemaids, weights;
     notes, sorted, (features, fkeys) = matchpiece(pieceid, schemata, params=weights,
                                                   corpus=corpus, cachedir=cachedir)
     
-    match = matchinteractive(notes, sorted)
+    match = matchinteractivewdg(notes, sorted)
 
     function mkrating(poly)
         ext = polyrange(poly)
@@ -297,8 +329,9 @@ function exploreview(pieceid, schemaids, weights;
     dhist = polydensities(polyrange.(sorted), notes=notes)
     wdens = polydensitywdg(dhist)
     
-    dom"div.container"(dom"h1.title.is-1"("Exploring $pieceid: $(join(schemaids, ", "))"),
-                       "Bar length: $barlen",
+    dom"div.container"(dom"h1.title.is-1"("Exploring $pieceid"),
+                       dom"p"("Schemata: $(join(schemaids, ", "))"),
+                       dom"p"("Bar length: $barlen"),
                        dom"h2.title.is-2"("Automatic Matcher"), match,
                        dom"h2.title.is-2"("Ratings"), wratings,
                        dom"h2.title.is-2"("Density"), wdens)
@@ -349,6 +382,14 @@ function logreq(app, req)
     app(req)
 end
 
+"""
+    exploreapp(corpora)
+
+Returns a Mux app serving an exploration view.
+Takes a corpus dictionary of the form `id => (corpusobj, description)`.
+Expects the parameters `:piece`, `:schemas`, and `:corpus` in the request,
+i.e. `reques[:params]` should have entries for these keys.
+"""
 function exploreapp(corpora)
     function (req)
         piece = req[:params][:piece]
@@ -360,6 +401,14 @@ function exploreapp(corpora)
     end
 end
 
+"""
+    annotateapp(corpora)
+
+Returns a Mux app serving an annotation view.
+Takes a corpus dictionary of the form `id => (corpusobj, description)`.
+Expects the parameters `:piece`, `:schemas`, and `:corpus` in the request,
+i.e. `reques[:params]` should have entries for these keys.
+"""
 function annotateapp(corpora)
     function (req)
         piece = req[:params][:piece]
@@ -371,6 +420,12 @@ function annotateapp(corpora)
     end
 end
 
+"""
+    schemaapp(corpora)
+
+Returns a Mux app for schema exploration and annotation.
+`corpora` is a dictionary of the form `id => (corpusobj, description)`.
+"""
 function schemaapp(corpora)
     stack(
         page("/", respond(overview(corpora))),
@@ -380,6 +435,12 @@ function schemaapp(corpora)
     #stack(page(respond(overview(corpora))))
 end
 
+"""
+    polyserve(app; host=ip"172.0.0.1", port=8000)
+
+Serves a Mux app that allows Interact widgets.
+An alternative to WebIO.serve_webio that allows to set the listen IP address.
+"""
 function polyserve(app; host=Mux.ip"127.0.0.1", port=8000)
     http = Mux.App(Mux.mux(
         Mux.defaults,
@@ -396,22 +457,3 @@ function polyserve(app; host=Mux.ip"127.0.0.1", port=8000)
 
     Mux.serve(http, websock, host, port)
 end
-
-# function annotate(;corpus=getcorpus(), lexicon="data/lexicon_flat.json")
-#     ids = dropdown(merge!(OrderedDict("Select Piece..." => ""),
-#                           OrderedDict(id => id for id in allpieces(corpus))),
-#                   label="Piece:")
-#     schemas = dropdown(merge(OrderedDict("Select Schema" => Vector{MidiPitch}[]),
-#                              sort(loadlexicon(lexicon))),
-#                        label="Schema:")
-#     load = button("Load")
-
-#     matcherwdg = map(load) do _
-#         if !(ids[] == "" || schemas[] == [])
-#             notes, polys, _ = matchpiece(ids[], [schemas[]])
-#             matchinteractive(notes, polys)
-#         end
-#     end
-    
-#     vbox(hbox(ids, schemas, load), matcherwdg)
-# end
