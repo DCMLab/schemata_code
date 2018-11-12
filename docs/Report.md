@@ -186,3 +186,61 @@ within a stylistically homogeneous corpus by tuning the score function.
 For a stylistically heterogeneous corpus this is very unlikely.
 
 ## Interactive Exploration and Annotation
+
+A set of web-based interactive components for the schema matcher were created
+that allow to visualize both individual polygrams in the context of the piece
+as well as the distribution of polygrams in the piece.
+Being created as `Interact.jl` widgets,
+these components can be used in the context of Jupyter notebooks and IDEs such as Atom,
+but can also be combined to larger, browser-based applications.
+Two such applications have been built,
+one for the exploration of interval-based schemata in  corpora,
+the other one for the computer assisted annotation of these schemata.
+
+### Exploration
+
+The exploration application consists of three main parts.
+In the first part, a visualization of the piece in "pianoroll" representation is shown
+with the notes of a single matched polygram highlighted.
+The user can browse through the results of the matcher (as described above)
+by cycling through the best results from each region of overlap.
+A separate slider allows to view alternative results from the current region of overlap.
+Finally, a switch can be used to indicate whether the current region contains a schema instance.
+The selected alternative and the state of the instance switch are remembered
+when going to the next or previous region.
+
+The second part contains an overview of the matching polygrams in the whole piece.
+Each polygram is visualized by a horizontal line that spans from the onset to the offset
+of the polygram it represents.
+The line's vertical position represents the score of the polygram.
+In addition, the polygrams selected as matches in the pianoroll view are highlighted
+(respecting the selection of alternatives and non-instance regions).
+This view allows simple identification of repeated instances and the structure of the piece
+as well as comparison of the scores of competing polygrams or true and false positives.
+
+Finally, the piece density of matching polygrams over the piece is visualized
+in a histogram-like plot, that indicates for every time point in the piece the number of
+matching polygrams that span over this time point.
+
+### Annotation
+
+The annotation application also consists of three parts.
+The first part is the same as in the exploration application
+and displays the results of the matcher in a pianoroll plot
+while allowing to modify individual matches and deselect complete regions.
+In this case, the selection is meant to be the correction of the annotator
+over the suggestions of the automatic matcher.
+
+True positives might be hard to find in the list of alternatives in the first plot,
+and false negatives may occur as well (although in a very controlled way).
+Therefore, the annotator can manually indicate schema instances in the second plot,
+which also is a pianoroll plot but allows interactive selection of notes.
+If the selection of notes made by the user  matches an interval pattern
+that has been used by the matcher in the first plot,
+the corresponding polygram is added to a list of manual annotations.
+This list is shown next to the plot, and from it polygrams can be reviewed and deleted.
+
+Finally, a third pianoroll plot combines the automatic (though moderated) matches
+from the first and the manual matches from the second widget.
+This allows the annotator to get an overview of all annotated matches and their origins.
+A save button allows to store these combined annotations in a well-defined location.
