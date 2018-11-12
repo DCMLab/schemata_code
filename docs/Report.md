@@ -39,7 +39,7 @@ that oblige to these parameters are generated and can be used for further proces
 
 ![A classical skipgram]()
 
-[Finkensiep, Neuwirth, and Rohrmeier (2018)](https://ismir2018.ircam.fr/doc/pdfs/202_Paper.pdf) showed
+[Finkensiep, Neuwirth, and Rohrmeier (2018)](http://ismir2018.ircam.fr/doc/pdfs/202_Paper.pdf) showed
 how to this idea can be generalized to arbitrary skip-distance measures.
 This allows skipgrams to be applied to notes in a polyphonic piece,
 where distances based on intermediate elements are not useful
