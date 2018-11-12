@@ -32,6 +32,9 @@ function schemamatches(notes, schemas::Vector{Vector{Vector{MidiPitch}}}, k1, k2
         error("All schemata must have the same number of stages")
     end
 
+    # fixme: This only works for two voices.
+    # With more voices, a prefix can potentially select the first and third voice,
+    # which are then incorrectly interpreted. To fix, check only complete stages in the end.
     vertfsa = makefsa(map(relatives, vcat(schemas...)))
     horifsa = makefsa(schemas)
     

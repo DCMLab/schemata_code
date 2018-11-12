@@ -7,3 +7,5 @@ deps/deps.jl
 official_counts/counts_2x4*
 oldcounts/
 unused/
+data/polys/*
+data/annots/*
