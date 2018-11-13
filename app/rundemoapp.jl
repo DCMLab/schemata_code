@@ -23,4 +23,4 @@ corpora = Dict(
     )
 )
 
-Polygrams.polyserve(Polygrams.schemaapp(corpora))
+Polygrams.polyserve(Polygrams.schemaapp(corpora), port=61000)
