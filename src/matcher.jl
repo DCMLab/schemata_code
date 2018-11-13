@@ -11,15 +11,13 @@ export schemamatches, matchpiece
 
 makefsa(schemas) = compile(words2nfa(schemas))
 
-partialmatch(cand, fsa) = preaccepts(fsa, cand)
-
-schemamatches(notes, schema::Vector{Vector{MidiPitch}}, k1, k2) =
-    schemamatches(notes, [schema], k1, k2)
-
 function relatives(ps::Vector{T}) where T
     ref = ps[1]
     map(p -> pc(p-ref), ps[2:end])
 end
+
+schemamatches(notes, schema::Vector{Vector{MidiPitch}}, k1, k2) =
+    schemamatches(notes, [schema], k1, k2)
 
 function schemamatches(notes, schemas::Vector{Vector{Vector{MidiPitch}}}, k1, k2, p2=1.0)
     nv = length(schemas[1][1]) # voices
@@ -32,24 +30,21 @@ function schemamatches(notes, schemas::Vector{Vector{Vector{MidiPitch}}}, k1, k2
         error("All schemata must have the same number of stages")
     end
 
-    # fixme: This only works for two voices.
-    # With more voices, a prefix can potentially select the first and third voice,
-    # which are then incorrectly interpreted. To fix, check only complete stages in the end.
+    # use automata to match verticals and horizontals according to schemas
     vertfsa = makefsa(map(relatives, vcat(schemas...)))
     horifsa = makefsa(schemas)
-    
-    function vertpred(pfx::plist{T}) where T
-        pfxrels = relatives(sort!(pitch.(collect(T,pfx))))
-        partialmatch(pfxrels, vertfsa)
-    end
-    
+
+    # predicate for horizontals: match and no overlap
     function horipred(pfx::plist{T}) where T
         pfxcand = schemarep(reverse(collect(T,pfx)))
-        nooverlap(pfx) && partialmatch(pfxcand, horifsa)
+        nooverlap(pfx) && preaccepts(horifsa, pfxcand)
     end
 
-    verts = skipgrams(notes, Float64(k1), nv, onsetcost, vertpred, stable=true)
-    #skipgrams(verticals(notes, k1, nv), Float64(k2), ns, groupdist(k2), horipred, p=p2)
+    # compute all verticals but filter for interval pattern matches
+    verts = Iterators.filter(skipgrams(notes, Float64(k1), nv, onsetcost, stable=true)) do vert
+        accepts(vertfsa, relatives(sort!(pitch.(vert))))
+    end
+    # compute horizontals and filter for schema matches on the fly
     skipgrams(verts, Float64(k2), ns, groupdist(k2), horipred, p=p2)
 end
 

@@ -153,16 +153,17 @@ isaccepting(dfa::DFA{S,A}, state::S) where {S,A} =
 
 function partialmatch(dfa::DFA{S,A}, input) where {S,A}
     state = initial(dfa)
-    newst = nothing
+    #newst = nothing
     for i in input
-        newst = nextstate(dfa, state, i)
-        if newst == nothing
+        #newst = nextstate(dfa, state, i)
+        state = nextstate(dfa, state, i)
+        if state == nothing
             return nothing
-        else
-            state = newst
+        # else
+        #     state = newst
         end
     end
-    newst
+    state
 end
 
 preaccepts(dfa::DFA, input) = (partialmatch(dfa, input)) != nothing
@@ -172,7 +173,7 @@ function accepts(dfa::DFA, input)
     if state == nothing
         return false
     else
-        isaccepting(dfa, get(state))
+        isaccepting(dfa, state)
     end
 end
 
@@ -262,20 +263,23 @@ function compile(nfa::NFA{S,A}) where {S,A}
     compile(DFA(init, finals, trans))
 end
 
+# create a trivial nfa for a list of words:
+# start from a common start state and add a new linear path
+# with new states for each word, collecting the final states.
 function words2nfa(words::T) where T
     A = eltype(eltype(T))
     init = 0
-    finals = Set(1)
-    counter = 2
+    finals = Set{Int}()
+    counter = 0
     trans = Dict{Tuple{Int, A}, Set{Int}}()
     for word in words
-        push!(get!(trans, (init, word[1]), Set{Int}()), counter)
         counter += 1
-        for w in word[2:end-1]
-            trans[(counter-1, w)] = Set(counter)
+        push!(get!(trans, (init, word[1]), Set{Int}()), counter)
+        for w in word[2:end]
             counter += 1
+            trans[(counter-1, w)] = Set(counter)
         end
-        trans[(counter-1, word[end])] = Set(1)
+        push!(finals, counter)
     end
     NFA(init, finals, trans)
 end
