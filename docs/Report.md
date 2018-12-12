@@ -1,6 +1,15 @@
-# Matching and Annotating Voice Leading Schemata - Technical Report
+---
+title: Matching and Annotating Voice-Leading Schemata
+subtitle: Technical Report
+author: Christoph Finkensiep
+---
+# Introduction
 
-## Introduction
+The goal of this project is to create a set of software tools for working
+with voice-leading schemata in musical corpora.
+Instances of specific schemata in pieces of music can be matched automatically,
+the matches can be explored, and schema annotations can be created
+by correcting and extending automatic matches.
 
 Voice-leading schemata are musical patterns of a certain type,
 which are easy to recognize but difficult to define.
@@ -23,11 +32,13 @@ by which concrete interval patterns can be derived from a schema type.
 The approach presented here is concerned with two things:
 1. Finding instances of a schema in a piece from an interval pattern ("matching").
 2. Annotating schema instances in a corpus in order to evaluate and improve the matcher.
-The here implemented solutions to these tasks are described in detail in the following sections.
+The software implemented in this project consists of a schema matcher,
+as well as a web interface for exploring these matches and creating corrected annotations from them.
+The implementation of these tools is described in detail in the following sections.
 
-## Schema Matching using Polygrams
+# Schema Matching using Polygrams
 
-### Skipgrams
+## Skipgrams
 
 Schema instances are characterized by a specific variant of skipgrams.
 Skipgrams are non-connected subsequences of objects from a longer sequence
@@ -36,8 +47,6 @@ They are characterized by (a) the number of objects to be selected `n` and
 (b) the "skip limit" `k`.
 Usually, all skipgrams within a given sequence of objects
 that oblige to these parameters are generated and can be used for further processing.
-
-![A classical skipgram]()
 
 [Finkensiep, Neuwirth, and Rohrmeier (2018)](http://ismir2018.ircam.fr/doc/pdfs/202_Paper.pdf) showed
 how to this idea can be generalized to arbitrary skip-distance measures.
@@ -55,7 +64,7 @@ The function generating all such skipgrams can be notated as
 skipgrams(input, n, k, f-skip, f-pred, [stable=false]).
 ```
 
-### Polygrams
+## Polygrams
 
 In order to reflect the *voices x stages* structure of schemata,
 schema instances are represented as nested lists of notes,
@@ -80,7 +89,7 @@ In the second step, all stages are combined into sequences, again using the skip
 In this case, the skip distance is a step function:
 ```
 stage-dist(s1, s2) = 0 if ioi(first(s1), first(s2)) < barlength,
-                        1 otherwise.
+                     1 otherwise.
 ```
 In other words, the distance between to stages is measured by the IOI
 between the onsets of their respective earliest notes.
@@ -94,7 +103,7 @@ Furthermore, no stage is allowed to overlap the other stages in the skipgram in 
 polygrams = skipgrams(stages, n_stages, 0, stage-dist, no-overlap).
 ```
 
-### Matching
+## Matching
 
 In the current approach, schemata are characterized by interval patterns.
 The description of interval patterns reflects the polygram structure:
@@ -130,7 +139,7 @@ stages = filter(is-stage, skipgrams(notes, n_voices, barlength, ioi-dist, consta
 polygrams = skipgrams(stages, n_stages, 0, stage-dist, no-overlap ∧ is-poly-prefix).
 ```
 
-## Selecting Matches using Heuristics
+# Selecting Matches using Heuristics
 
 While the first part of the schema matcher returns all schema-like structures
 of limited temporal range that match a schema's interval structure,
@@ -151,7 +160,7 @@ The general procedure consists of two steps:
 2. Combinatoric complexity is reduced by removing overlapping polygrams in favour
    of the polygram with the highest score.
 
-### Heuristics and Score
+## Heuristics and Score
 
 The following heuristics are currently used to evaluate schema instances:
 - the total duration of the notes in the polygram `Σₙ dur(n)`
@@ -160,7 +169,6 @@ The following heuristics are currently used to evaluate schema instances:
   `Σₛ onset(latest(s)) - onset(earliest(s))`
 - the total number of semitones traveled within all voices
   `Σᵥ Σᵢ |pitch(poly[i,v]) - pitch(poly[i+1,v])|`.
-- **TODO**: try normalized pairwise variability index
 
 Since these heuristics return numeric values,
 the total score of a polygram can obtained by taking a weighted sum
@@ -169,7 +177,7 @@ When a dataset marking true positive polygrams is available,
 the weights can be fitted using a logistic regression,
 maximizing the score of true positives while minimizing the score of false positives.
 
-### Complexity Reduction
+## Complexity Reduction
 
 Using the score, the combinatoric explosion caused by repetition of notes can be reverted.
 Whenever a polygram overlaps temporally with another polygrams,
@@ -185,7 +193,7 @@ It is unclear, if these can be reliably distinguished from false positives
 within a stylistically homogeneous corpus by tuning the score function.
 For a stylistically heterogeneous corpus this is very unlikely.
 
-## Interactive Exploration and Annotation
+# Interactive Exploration and Annotation
 
 A set of web-based interactive components for the schema matcher were created
 that allow to visualize both individual polygrams in the context of the piece
@@ -197,7 +205,7 @@ Two such applications have been built,
 one for the exploration of interval-based schemata in  corpora,
 the other one for the computer assisted annotation of these schemata.
 
-### Exploration
+## Exploration
 
 The exploration application consists of three main parts.
 In the first part, a visualization of the piece in "pianoroll" representation is shown
@@ -209,6 +217,8 @@ Finally, a switch can be used to indicate whether the current region contains a 
 The selected alternative and the state of the instance switch are remembered
 when going to the next or previous region.
 
+![A visualization of schema instances with controls for correcting them.](img/matches.png)
+
 The second part contains an overview of the matching polygrams in the whole piece.
 Each polygram is visualized by a horizontal line that spans from the onset to the offset
 of the polygram it represents.
@@ -218,11 +228,15 @@ In addition, the polygrams selected as matches in the pianoroll view are highlig
 This view allows simple identification of repeated instances and the structure of the piece
 as well as comparison of the scores of competing polygrams or true and false positives.
 
+![The ratings of all matched skipgrams in the piece. Selected skipgrams are highlighted.](img/ratings.png)
+
 Finally, the piece density of matching polygrams over the piece is visualized
 in a histogram-like plot, that indicates for every time point in the piece the number of
 matching polygrams that span over this time point.
 
-### Annotation
+![The distribution of matched skipgrams over the piece.](img/density.png)
+
+## Annotation
 
 The annotation application also consists of three parts.
 The first part is the same as in the exploration application
@@ -240,7 +254,12 @@ that has been used by the matcher in the first plot,
 the corresponding polygram is added to a list of manual annotations.
 This list is shown next to the plot, and from it polygrams can be reviewed and deleted.
 
+![Schema instances that were not discovered automatically can be added manually.](img/manual.png)
+
 Finally, a third pianoroll plot combines the automatic (though moderated) matches
 from the first and the manual matches from the second widget.
 This allows the annotator to get an overview of all annotated matches and their origins.
 A save button allows to store these combined annotations in a well-defined location.
+
+![Automatically and manually annotated are shown together in an overview in two different colors.
+The combined annotations can be saved.](img/overview.png)
