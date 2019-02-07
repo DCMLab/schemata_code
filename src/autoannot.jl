@@ -132,13 +132,15 @@ function matchinteractivewdg(notes, sortedpolys)
     best = Observable(bestmatches(!polyssharetime, sortedpolys))
     alternatives = nothing
     current = Observable(1)
-    hits = Observable(trues(length(best[])))
+    nbest = length(best[])
+    hits = Observable(trues(nbest))
     matches = map(getindex, best, hits)
     
     # matcher elements
 
     altslider = Observable(slider(1:10))
     pr = pianorollwdg(notes)
+    curlabel = map(c -> "$(c)/$(nbest)", current)
     
     function refresh()
         alternatives = findcompetitors(polyssharetime, best[][current[]], sortedpolys)
@@ -174,7 +176,7 @@ function matchinteractivewdg(notes, sortedpolys)
     # ratings widget
     
     wdg = Widget([:matches => matches], output=matches)
-    controls = ["Match No.", prev, current, next, "Alternative:", altslider, ishit]
+    controls = ["Match No.", prev, curlabel, next, "Alternative:", altslider, ishit]
     ctrldom = level(controls)
     @layout! wdg vbox(pr, ctrldom)                                         
 end
