@@ -12,7 +12,7 @@ end
 
 # helpers for saving 
 
-lowerrational(r::Rational) = (num=numerator(r), denom=denominator(r))
+lowerrational(r::Rational) = (numerator=numerator(r), denominator=denominator(r))
 lowerrational(x) = x
 
 JSON.lower(p::MidiPitch) = p.pitch
