@@ -1,0 +1,496 @@
+{
+  "piece": "sonata01-1",
+  "schema": "fonte.2",
+  "instances": [
+    [
+      [
+        {
+          "pitch": 74,
+          "onset": {
+            "num": 31,
+            "denom": 2
+          },
+          "offset": {
+            "num": 63,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 44,
+          "onset": {
+            "num": 129,
+            "denom": 8
+          },
+          "offset": {
+            "num": 259,
+            "denom": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 45,
+          "onset": {
+            "num": 17,
+            "denom": 1
+          },
+          "offset": {
+            "num": 69,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 72,
+          "onset": {
+            "num": 273,
+            "denom": 16
+          },
+          "offset": {
+            "num": 137,
+            "denom": 8
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 72,
+          "onset": {
+            "num": 35,
+            "denom": 2
+          },
+          "offset": {
+            "num": 71,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 42,
+          "onset": {
+            "num": 145,
+            "denom": 8
+          },
+          "offset": {
+            "num": 291,
+            "denom": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 71,
+          "onset": {
+            "num": 19,
+            "denom": 1
+          },
+          "offset": {
+            "num": 77,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 55,
+          "onset": {
+            "num": 19,
+            "denom": 1
+          },
+          "offset": {
+            "num": 305,
+            "denom": 16
+          }
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "pitch": 67,
+          "onset": {
+            "num": 69,
+            "denom": 1
+          },
+          "offset": {
+            "num": 277,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 37,
+          "onset": {
+            "num": 557,
+            "denom": 8
+          },
+          "offset": {
+            "num": 1115,
+            "denom": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 50,
+          "onset": {
+            "num": 71,
+            "denom": 1
+          },
+          "offset": {
+            "num": 285,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 77,
+          "onset": {
+            "num": 1137,
+            "denom": 16
+          },
+          "offset": {
+            "num": 569,
+            "denom": 8
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 65,
+          "onset": {
+            "num": 143,
+            "denom": 2
+          },
+          "offset": {
+            "num": 287,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 47,
+          "onset": {
+            "num": 577,
+            "denom": 8
+          },
+          "offset": {
+            "num": 1155,
+            "denom": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 76,
+          "onset": {
+            "num": 147,
+            "denom": 2
+          },
+          "offset": {
+            "num": 295,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 60,
+          "onset": {
+            "num": 147,
+            "denom": 2
+          },
+          "offset": {
+            "num": 1177,
+            "denom": 16
+          }
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "pitch": 72,
+          "onset": {
+            "num": 363,
+            "denom": 8
+          },
+          "offset": {
+            "num": 727,
+            "denom": 16
+          }
+        },
+        {
+          "pitch": 54,
+          "onset": {
+            "num": 363,
+            "denom": 8
+          },
+          "offset": {
+            "num": 91,
+            "denom": 2
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 70,
+          "onset": {
+            "num": 91,
+            "denom": 2
+          },
+          "offset": {
+            "num": 183,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 55,
+          "onset": {
+            "num": 91,
+            "denom": 2
+          },
+          "offset": {
+            "num": 729,
+            "denom": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 70,
+          "onset": {
+            "num": 371,
+            "denom": 8
+          },
+          "offset": {
+            "num": 743,
+            "denom": 16
+          }
+        },
+        {
+          "pitch": 52,
+          "onset": {
+            "num": 371,
+            "denom": 8
+          },
+          "offset": {
+            "num": 93,
+            "denom": 2
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 69,
+          "onset": {
+            "num": 93,
+            "denom": 2
+          },
+          "offset": {
+            "num": 187,
+            "denom": 4
+          }
+        },
+        {
+          "pitch": 53,
+          "onset": {
+            "num": 93,
+            "denom": 2
+          },
+          "offset": {
+            "num": 745,
+            "denom": 16
+          }
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "pitch": 68,
+          "onset": {
+            "num": 171,
+            "denom": 8
+          },
+          "offset": {
+            "num": 43,
+            "denom": 2
+          }
+        },
+        {
+          "pitch": 74,
+          "onset": {
+            "num": 343,
+            "denom": 16
+          },
+          "offset": {
+            "num": 43,
+            "denom": 2
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 72,
+          "onset": {
+            "num": 43,
+            "denom": 2
+          },
+          "offset": {
+            "num": 173,
+            "denom": 8
+          }
+        },
+        {
+          "pitch": 69,
+          "onset": {
+            "num": 43,
+            "denom": 2
+          },
+          "offset": {
+            "num": 87,
+            "denom": 4
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 66,
+          "onset": {
+            "num": 175,
+            "denom": 8
+          },
+          "offset": {
+            "num": 22,
+            "denom": 1
+          }
+        },
+        {
+          "pitch": 72,
+          "onset": {
+            "num": 351,
+            "denom": 16
+          },
+          "offset": {
+            "num": 22,
+            "denom": 1
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 71,
+          "onset": {
+            "num": 22,
+            "denom": 1
+          },
+          "offset": {
+            "num": 177,
+            "denom": 8
+          }
+        },
+        {
+          "pitch": 67,
+          "onset": {
+            "num": 22,
+            "denom": 1
+          },
+          "offset": {
+            "num": 89,
+            "denom": 4
+          }
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "pitch": 73,
+          "onset": {
+            "num": 607,
+            "denom": 8
+          },
+          "offset": {
+            "num": 76,
+            "denom": 1
+          }
+        },
+        {
+          "pitch": 79,
+          "onset": {
+            "num": 1215,
+            "denom": 16
+          },
+          "offset": {
+            "num": 76,
+            "denom": 1
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 77,
+          "onset": {
+            "num": 76,
+            "denom": 1
+          },
+          "offset": {
+            "num": 609,
+            "denom": 8
+          }
+        },
+        {
+          "pitch": 74,
+          "onset": {
+            "num": 76,
+            "denom": 1
+          },
+          "offset": {
+            "num": 305,
+            "denom": 4
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 71,
+          "onset": {
+            "num": 611,
+            "denom": 8
+          },
+          "offset": {
+            "num": 153,
+            "denom": 2
+          }
+        },
+        {
+          "pitch": 77,
+          "onset": {
+            "num": 1223,
+            "denom": 16
+          },
+          "offset": {
+            "num": 153,
+            "denom": 2
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 76,
+          "onset": {
+            "num": 153,
+            "denom": 2
+          },
+          "offset": {
+            "num": 613,
+            "denom": 8
+          }
+        },
+        {
+          "pitch": 72,
+          "onset": {
+            "num": 153,
+            "denom": 2
+          },
+          "offset": {
+            "num": 307,
+            "denom": 4
+          }
+        }
+      ]
+    ]
+  ]
+}
