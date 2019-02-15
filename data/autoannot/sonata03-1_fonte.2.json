@@ -1,0 +1,104 @@
+{
+  "piece": "sonata03-1",
+  "schema": "fonte.2",
+  "instances": [
+    [
+      [
+        {
+          "pitch": 84,
+          "onset": {
+            "numerator": 61,
+            "denominator": 2
+          },
+          "offset": {
+            "numerator": 247,
+            "denominator": 8
+          }
+        },
+        {
+          "pitch": 42,
+          "onset": {
+            "numerator": 123,
+            "denominator": 4
+          },
+          "offset": {
+            "numerator": 493,
+            "denominator": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 82,
+          "onset": {
+            "numerator": 247,
+            "denominator": 8
+          },
+          "offset": {
+            "numerator": 125,
+            "denominator": 4
+          }
+        },
+        {
+          "pitch": 43,
+          "onset": {
+            "numerator": 247,
+            "denominator": 8
+          },
+          "offset": {
+            "numerator": 495,
+            "denominator": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 82,
+          "onset": {
+            "numerator": 137,
+            "denominator": 4
+          },
+          "offset": {
+            "numerator": 277,
+            "denominator": 8
+          }
+        },
+        {
+          "pitch": 40,
+          "onset": {
+            "numerator": 69,
+            "denominator": 2
+          },
+          "offset": {
+            "numerator": 553,
+            "denominator": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 81,
+          "onset": {
+            "numerator": 277,
+            "denominator": 8
+          },
+          "offset": {
+            "numerator": 35,
+            "denominator": 1
+          }
+        },
+        {
+          "pitch": 41,
+          "onset": {
+            "numerator": 277,
+            "denominator": 8
+          },
+          "offset": {
+            "numerator": 555,
+            "denominator": 16
+          }
+        }
+      ]
+    ]
+  ]
+}
