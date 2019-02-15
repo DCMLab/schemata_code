@@ -129,6 +129,15 @@ and a list of polygrams sorted by some score function.
 The widget's output is the list of matched polygrams.
 """
 function matchinteractivewdg(notes, sortedpolys)
+    if isempty(sortedpolys)
+        matches = Observable(sortedpolys)
+        wdg = Widget([:matches => matches], output=matches)
+        
+        errdom = dom"span[color=red]"("No matches found!")
+        @layout! wdg errdom
+        return wdg
+    end
+    
     best = Observable(bestmatches(!polyssharetime, sortedpolys))
     alternatives = nothing
     current = Observable(1)
@@ -178,7 +187,7 @@ function matchinteractivewdg(notes, sortedpolys)
     wdg = Widget([:matches => matches], output=matches)
     controls = ["Match No.", prev, curlabel, next, "Alternative:", altslider, ishit]
     ctrldom = level(controls)
-    @layout! wdg vbox(pr, ctrldom)                                         
+    @layout! wdg vbox(pr, ctrldom)
 end
 
 """
