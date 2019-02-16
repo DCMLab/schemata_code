@@ -1,0 +1,104 @@
+{
+  "piece": "sonata05-2",
+  "schema": "fonte.2",
+  "instances": [
+    [
+      [
+        {
+          "pitch": 79,
+          "onset": {
+            "numerator": 65,
+            "denominator": 4
+          },
+          "offset": {
+            "numerator": 33,
+            "denominator": 2
+          }
+        },
+        {
+          "pitch": 61,
+          "onset": {
+            "numerator": 65,
+            "denominator": 4
+          },
+          "offset": {
+            "numerator": 131,
+            "denominator": 8
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 77,
+          "onset": {
+            "numerator": 33,
+            "denominator": 2
+          },
+          "offset": {
+            "numerator": 67,
+            "denominator": 4
+          }
+        },
+        {
+          "pitch": 62,
+          "onset": {
+            "numerator": 33,
+            "denominator": 2
+          },
+          "offset": {
+            "numerator": 265,
+            "denominator": 16
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 59,
+          "onset": {
+            "numerator": 17,
+            "denominator": 1
+          },
+          "offset": {
+            "numerator": 273,
+            "denominator": 16
+          }
+        },
+        {
+          "pitch": 77,
+          "onset": {
+            "numerator": 277,
+            "denominator": 16
+          },
+          "offset": {
+            "numerator": 139,
+            "denominator": 8
+          }
+        }
+      ],
+      [
+        {
+          "pitch": 60,
+          "onset": {
+            "numerator": 35,
+            "denominator": 2
+          },
+          "offset": {
+            "numerator": 71,
+            "denominator": 4
+          }
+        },
+        {
+          "pitch": 64,
+          "onset": {
+            "numerator": 35,
+            "denominator": 2
+          },
+          "offset": {
+            "numerator": 281,
+            "denominator": 16
+          }
+        }
+      ]
+    ]
+  ]
+}
