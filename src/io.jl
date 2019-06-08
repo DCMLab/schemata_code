@@ -15,7 +15,11 @@ end
 lowerrational(r::Rational) = (numerator=numerator(r), denominator=denominator(r))
 lowerrational(x) = x
 
-JSON.lower(p::MidiPitch) = p.pitch
+JSON.lower(p::Pitch) = JSON.lower(p.pitch)
+JSON.lower(i::MidiInterval) = i.interval
+JSON.lower(i::MidiIC) = i.ic
+JSON.lower(i::SpelledInterval) = JSON.lower((d=i.d,c=i.c))
+JSON.lower(i::SpelledIC) = JSON.lower((f=i.fifth))
 
 function saveannots(pieceid, schemaid, polys, dir)
     escid = replace(pieceid, r"[\\/]" => s"_")
