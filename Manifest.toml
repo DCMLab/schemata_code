@@ -59,9 +59,9 @@ version = "0.6.0"
 
 [[CategoricalArrays]]
 deps = ["Compat", "Future", "JSON", "Missings", "Printf", "Reexport"]
-git-tree-sha1 = "a769ea972a3c018d24ba7b6cb5030a1b7578e1e7"
+git-tree-sha1 = "26601961df6afacdd16d67c1eec6cfe75e5ae9ab"
 uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
-version = "0.5.3"
+version = "0.5.4"
 
 [[CodeTracking]]
 deps = ["InteractiveUtils", "Test", "UUIDs"]
@@ -121,7 +121,7 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DigitalMusicology]]
 deps = ["CSV", "DataFrames", "EzXML", "FunctionalCollections", "IterTools", "JSON", "LightXML", "MIDI", "NodeJS", "Primes", "Query", "Ratios", "Reexport"]
-git-tree-sha1 = "d1250b8e862cee55cb6aa855b33db49f52a37f7b"
+git-tree-sha1 = "7c614199af99ab75a5042f48cc2a7ada1b525ba3"
 repo-rev = "master"
 repo-url = "https://github.com/DCMLab/DigitalMusicology.jl.git"
 uuid = "2c2a18ac-9fc9-11e8-3acf-35f06862b736"
@@ -273,10 +273,10 @@ uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
 version = "0.6.0"
 
 [[Knockout]]
-deps = ["JSExpr", "JSON", "Observables", "Pkg", "Test", "WebIO"]
-git-tree-sha1 = "5cca7f070f85392cd0f42220c8ea5f7be96dacf4"
+deps = ["JSExpr", "JSON", "Observables", "Test", "WebIO"]
+git-tree-sha1 = "53533b51d4b6964eca3065b0834e9f61ed2f7515"
 uuid = "bcebb21b-c2e3-54f8-a781-646b90f6d2cc"
-version = "0.2.2"
+version = "0.2.3"
 
 [[Lazy]]
 deps = ["Compat", "MacroTools", "Test"]

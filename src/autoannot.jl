@@ -125,7 +125,7 @@ function polydensitywdg(hist)
 end
 
 """
-    matchinteractivewdg(notes, sortedpolys)
+    matchinteractivewdg(notes, sortedpolys, xml)
 
 Returns an interactive matching widget given a list of notes
 and a list of polygrams sorted by some score function.
@@ -197,7 +197,7 @@ function matchinteractivewdg(notes, sortedpolys, xml)
 end
 
 """
-    markschemaswdg(notes, schemas)
+    markschemaswdg(notes, xml, schemas)
 
 Returns a widget for marking schemata in a pianoroll plot.
 Takes a list of notes and a list of schema prototypes.
