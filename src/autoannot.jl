@@ -203,8 +203,13 @@ Returns a widget for marking schemata in a pianoroll plot.
 Takes a list of notes and a list of schema prototypes.
 The widget's output is the list of polygrams marked by the user.
 """
-function markschemaswdg(notes, xml, schemas; timesigs=nothing)
+function markschemaswdg(notes, xml, schemas; timesigs=nothing, initial=nothing)
     marked = Observable(SortedSet(Base.By(x->onset(x[1][1]))))
+    if initial != nothing
+        for x in initial
+            marked[] = push!(marked[], x)
+        end
+    end
     highlighted = Observable([])
     notesbyid = Dict(id(n) => n for n in notes)
 
@@ -241,6 +246,7 @@ function markschemaswdg(notes, xml, schemas; timesigs=nothing)
         shw = button("show")
         on(shw) do _
             highlighted[] = ids
+            pr[:jumpto][] = ids[1][1]
         end
 
         if ids == highl

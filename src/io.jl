@@ -30,6 +30,14 @@ end
 
 lowerrational(r::Rational) = (numerator=numerator(r), denominator=denominator(r))
 lowerrational(x) = x
+liftrational(obj::AbstractDict) = if haskey(:num, obj) && haskey(:denom, obj)
+    obj[:num] // obj[:denom]
+elseif haskey(:numerator, obj) && haskey(:denominator, obj)
+    obj[:numerator] // obj[:denominator]
+else
+    obj
+end
+liftrational(x) = x
 
 JSON.lower(p::Pitch) = JSON.lower(p.pitch)
 JSON.lower(i::MidiInterval) = i.interval
@@ -77,5 +85,25 @@ function saveannots(pieceid, schemaid, polys, dir)
     
     open(fn, "w") do file
         JSON.print(file, (piece=pieceid, schema=schemaid, instances=loweredpolys), 2)
+    end
+end
+
+function loadannots(pieceid, schemaid, dir, notedict)
+    escid = replace(pieceid, r"[\\/]" => s"_")
+    fn = joinpath(dir, "$(escid)_$(schemaid).json")
+    
+    annots = JSON.parsefile(fn)
+    map(annots["instances"]) do instance
+        map(instance) do stage
+            map(stage) do note
+                if isa(note, String)
+                    notedict[note]
+                else
+                    TimedNote(note[:pitch],
+                              liftrational(note[:onset]),
+                              liftrational(note[:offset]))
+                end
+            end
+        end
     end
 end
