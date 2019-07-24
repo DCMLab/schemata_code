@@ -140,9 +140,13 @@ function matchinteractivewdg(notes, sortedpolys, xml)
         @layout! wdg errdom
         return wdg
     end
+
+    if any(ismissing∘id, notes)
+        error("Some notes are missing an id!")
+    end
     
     best = Observable(bestmatches(!polyssharetime, sortedpolys))
-    alternatives = nothing
+    alternatives = map(b -> findcompetitors(polyssharetime, b, sortedpolys), best[])
     current = Observable(1)
     nbest = length(best[])
     hits = Observable(trues(nbest))
@@ -156,17 +160,18 @@ function matchinteractivewdg(notes, sortedpolys, xml)
     curlabel = map(c -> "$(c)/$(nbest)", current)
     
     function refresh()
-        alternatives = findcompetitors(polyssharetime, best[][current[]], sortedpolys)
-        sl = slider(1:length(alternatives), value=1)
+        # alternatives = findcompetitors(polyssharetime, best[][current[]], sortedpolys)
+        alts = alternatives[current[]]
+        sl = slider(1:length(alts), value=1)
         on(sl) do alt
-            best[][current[]] = alternatives[alt]
+            best[][current[]] = alts[alt]
             best[] = best[]
-            hlnotes = map(s -> collect(skipmissing(map(id,s))), alternatives[alt])
+            hlnotes = map(s -> collect(skipmissing(map(id,s))), alts[alt])
             pr[:highlights][] = hlnotes
             pr[:jumpto][] = hlnotes[1][1]
         end
         altslider[] = sl
-        altslider[][] = findfirst(alt -> alt == best[][current[]], alternatives)
+        altslider[][] = findfirst(alt -> alt == best[][current[]], alts)
         ishit[] = hits[][current[]]
     end
 
@@ -204,6 +209,10 @@ Takes a list of notes and a list of schema prototypes.
 The widget's output is the list of polygrams marked by the user.
 """
 function markschemaswdg(notes, xml, schemas; timesigs=nothing, initial=nothing)
+    if any(ismissing∘id, notes)
+        error("Some notes are missing an id!")
+    end
+
     marked = Observable(SortedSet(Base.By(x->onset(x[1][1]))))
     if initial != nothing
         for x in initial

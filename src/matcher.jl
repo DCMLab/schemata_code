@@ -127,7 +127,7 @@ function octdiv(int)
     octs = 0
     oct = octave(int)
     # count full octaves in the interval
-    while int > oct
+    while int >= oct
         int -= oct
         octs += 1
     end
