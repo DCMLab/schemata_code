@@ -5,7 +5,7 @@ using DigitalMusicology.Helpers: witheltype
 import MIDI
 
 using MusicologyPlots
-import VegaLite
+#import VegaLite
 
 using DataFrames: DataFrame
 import FileIO
