@@ -119,8 +119,8 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DigitalMusicology]]
 deps = ["CSV", "DataFrames", "EzXML", "FunctionalCollections", "IterTools", "JSON", "LightXML", "MIDI", "NodeJS", "Primes", "Query", "Ratios", "Reexport"]
-git-tree-sha1 = "03debb9ad56031f204c197d08ac922931d2aed37"
-repo-rev = "0a906d9311a8af1fa34583b11ad7bd520b43d5eb"
+git-tree-sha1 = "b4da43d3c9e0f4d7dcd45e02062c3db37acb339a"
+repo-rev = "97695a38091c37d1e324809b5a972eabc73fffe6"
 repo-url = "https://github.com/DCMLab/DigitalMusicology.jl"
 uuid = "2c2a18ac-9fc9-11e8-3acf-35f06862b736"
 version = "0.1.0"
