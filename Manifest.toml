@@ -329,8 +329,8 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 [[MusicologyPlots]]
 deps = ["AssetRegistry", "DataFrames", "DigitalMusicology", "Interact", "JSExpr", "JSON", "LightXML", "Mux", "VegaLite", "WebIO", "Widgets"]
 git-tree-sha1 = "eea507f39e2b1243ba2373eeb9d059655aa87dc0"
-repo-rev = "master"
-repo-url = "https://github.com/DCMLab/MusicologyPlots.jl.git"
+repo-rev = "b1df2bbf89c4435c1186ab92930e580adb250765"
+repo-url = "https://github.com/DCMLab/MusicologyPlots.jl"
 uuid = "c9d89ec8-a6c4-11e8-1629-537f3e81f650"
 version = "0.0.0"
 
