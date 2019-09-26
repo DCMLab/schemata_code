@@ -1,3 +1,8 @@
+name = "Polygrams"
+uuid = "ff327f2e-f156-4460-b1fa-84efc9ef9f2d"
+version = "0.1.0"
+author = ["Christoph Finkensiep <christoph.finkensiep@epfl.ch>"]
+
 [deps]
 Blink = "ad839575-38b3-5650-b840-f874b8c74a25"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
