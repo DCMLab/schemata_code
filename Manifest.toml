@@ -9,23 +9,11 @@ version = "0.1.0"
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
-[[BinDeps]]
-deps = ["Compat", "Libdl", "SHA", "URIParser"]
-git-tree-sha1 = "12093ca6cdd0ee547c39b1870e0c9c3f154d9ca9"
-uuid = "9e28174c-4ba2-5203-b857-d8d62c4213ee"
-version = "0.8.10"
-
 [[BinaryProvider]]
 deps = ["Libdl", "Logging", "SHA"]
 git-tree-sha1 = "c7361ce8a2129f20b0e05a89f7070820cfed6648"
 uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.6"
-
-[[Blink]]
-deps = ["Base64", "BinDeps", "Distributed", "JSExpr", "JSON", "Lazy", "Libdl", "Logging", "MacroTools", "Mustache", "Mux", "Reexport", "Sockets", "Test", "WebIO", "WebSockets"]
-git-tree-sha1 = "5b0ca771f6e59bbba820888af8a6edbcc62bc86a"
-uuid = "ad839575-38b3-5650-b840-f874b8c74a25"
-version = "0.10.1"
 
 [[CSSUtil]]
 deps = ["Colors", "Compat", "JSON", "Measures", "Pkg", "WebIO"]
@@ -333,12 +321,6 @@ repo-rev = "b1df2bbf89c4435c1186ab92930e580adb250765"
 repo-url = "https://github.com/DCMLab/MusicologyPlots.jl"
 uuid = "c9d89ec8-a6c4-11e8-1629-537f3e81f650"
 version = "0.0.0"
-
-[[Mustache]]
-deps = ["Printf", "Tables"]
-git-tree-sha1 = "f39de3a12232eb47bd0629b3a661054287780276"
-uuid = "ffc61752-8dc7-55ee-8c37-f3e9cdd09e70"
-version = "0.5.13"
 
 [[Mux]]
 deps = ["AssetRegistry", "Base64", "HTTP", "Hiccup", "Lazy", "Pkg", "Sockets", "Test", "WebSockets"]
