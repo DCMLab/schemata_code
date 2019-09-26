@@ -47,8 +47,8 @@ and use a pull request in order to get your branch merged.
 
 ## Code Structure
 
-* `src/polygrams.jl` provides basic functionality for handling schemata
-  and serves as an entry point.
+* `src/Polygrams.jl` provides basic functionality for handling schemata
+  and serves as the main entry point of the package.
 * `src/matcher.jl` contains a schema matcher based on nested skipgrams (polygrams).
 * `src/autoannot.jl` contains [Interact](https://github.com/JuliaGizmos/Interact.jl)
   widgets for creating semi-automatic schema annotations.
