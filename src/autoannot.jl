@@ -21,6 +21,9 @@ Takes a list of dom elements and wraps them in bulma.css' level elements (left-a
 level(items) = dom"div.level"(dom"div.level-left"(map(dom"div.level-item", items)...))
 level(items...) = level(items)
 
+bbsstr(bar,beat,subb) =
+    "$(bar+1).$(beat+1)" * if subb != 0//1; string(subb) else "" end
+
 """
     ratingswdg(ratings)
 
@@ -122,13 +125,13 @@ function polydensitywdg(hist)
 end
 
 """
-    matchinteractivewdg(notes, sortedpolys)
+    matchinteractivewdg(notes, sortedpolys, xml)
 
 Returns an interactive matching widget given a list of notes
 and a list of polygrams sorted by some score function.
 The widget's output is the list of matched polygrams.
 """
-function matchinteractivewdg(notes, sortedpolys)
+function matchinteractivewdg(notes, sortedpolys, xml)
     if isempty(sortedpolys)
         matches = Observable(sortedpolys)
         wdg = Widget([:matches => matches], output=matches)
@@ -137,9 +140,13 @@ function matchinteractivewdg(notes, sortedpolys)
         @layout! wdg errdom
         return wdg
     end
+
+    if any(ismissing∘id, notes)
+        error("Some notes are missing an id!")
+    end
     
     best = Observable(bestmatches(!polyssharetime, sortedpolys))
-    alternatives = nothing
+    alternatives = map(b -> findcompetitors(polyssharetime, b, sortedpolys), best[])
     current = Observable(1)
     nbest = length(best[])
     hits = Observable(trues(nbest))
@@ -148,19 +155,23 @@ function matchinteractivewdg(notes, sortedpolys)
     # matcher elements
 
     altslider = Observable(slider(1:10))
-    pr = pianorollwdg(notes)
+    # #pr = pianorollwdg(notes)
+    pr = veroviowdg(xml; allowselect=false, format="xml")
     curlabel = map(c -> "$(c)/$(nbest)", current)
     
     function refresh()
-        alternatives = findcompetitors(polyssharetime, best[][current[]], sortedpolys)
-        sl = slider(1:length(alternatives), value=1)
+        # alternatives = findcompetitors(polyssharetime, best[][current[]], sortedpolys)
+        alts = alternatives[current[]]
+        sl = slider(1:length(alts), value=1)
         on(sl) do alt
-            best[][current[]] = alternatives[alt]
+            best[][current[]] = alts[alt]
             best[] = best[]
-            pr[:highlights][] = [vcat(alternatives[alt]...)]
+            hlnotes = map(s -> collect(skipmissing(map(id,s))), alts[alt])
+            pr[:highlights][] = hlnotes
+            pr[:jumpto][] = hlnotes[1][1]
         end
         altslider[] = sl
-        altslider[][] = findfirst(alt -> alt == best[][current[]], alternatives)
+        altslider[][] = findfirst(alt -> alt == best[][current[]], alts)
         ishit[] = hits[][current[]]
     end
 
@@ -187,47 +198,68 @@ function matchinteractivewdg(notes, sortedpolys)
     wdg = Widget([:matches => matches], output=matches)
     controls = ["Match No.", prev, curlabel, next, "Alternative:", altslider, ishit]
     ctrldom = level(controls)
-    @layout! wdg vbox(pr, ctrldom)
+    @layout! wdg dom"div.interact-widget"(vbox(ctrldom, pr))
 end
 
 """
-    markschemaswdg(notes, schemas)
+    markschemaswdg(notes, xml, schemas)
 
 Returns a widget for marking schemata in a pianoroll plot.
 Takes a list of notes and a list of schema prototypes.
 The widget's output is the list of polygrams marked by the user.
 """
-function markschemaswdg(notes, schemas)
-    marked = Observable(SortedSet(Base.By(x->onset(x[1][1]))))
-    highlighted = Observable([])
+function markschemaswdg(notes, xml, schemas; timesigs=nothing, initial=nothing)
+    if any(ismissing∘id, notes)
+        error("Some notes are missing an id!")
+    end
 
-    pr = pianorollwdg(notes, allowselect=true)
+    marked = Observable(SortedSet(Base.By(x->onset(x[1][1]))))
+    if initial != nothing
+        for x in initial
+            marked[] = push!(marked[], x)
+        end
+    end
+    highlighted = Observable([])
+    notesbyid = Dict(id(n) => n for n in notes)
+
+    #pr = pianorollwdg(notes, allowselect=true)
+    pr = veroviowdg(xml; allowselect=true, format="xml")
+
 
     on(pr[:selected]) do selected
         for schema in schemas
-            if length(selected) == sum(length, schema)
-                sel = sort(selected, by=onset)
-                poly = collect(partition(sel, length(schema[1])))
+            if length(selected) == length(schema)
+                # replace selected ids with corresponding notes
+                notes = map(id -> notesbyid[id], selected)
+                sel = sort(notes, by=onset)
+                poly = collect(partition(sel, size(schema)[2]))
                 if schemarep(poly) == schema
                     marked[] = push!(marked[], poly)
-                    highlighted[] = poly
+                    highlighted[] = map(s -> map(id,s), poly)
                     clear!(pr)
                 end
             end
         end
     end
 
-    Observables.@map! pr[:highlights] [polynotes(&highlighted)]
+    Observables.@map! pr[:highlights] &highlighted
 
     function mkrow(poly, i, highl)
         onset, offset = polyrange(poly)
+        if timesigs != nothing
+            onset = bbsstr(barbeatsubb(onset, timesigs)...)
+            offset = bbsstr(barbeatsubb(offset, timesigs)...)
+        end
+        
+        ids = map(s -> map(id,s), poly)
         shw = button("show")
         on(shw) do _
-            highlighted[] = poly
+            highlighted[] = ids
+            pr[:jumpto][] = ids[1][1]
         end
 
-        if poly == highl
-            del = button("delete")
+        if ids == highl
+            del = button("X")
             on(del) do _
                 highlighted[] = []
                 pop!(marked[], poly)
@@ -248,7 +280,7 @@ function markschemaswdg(notes, schemas)
     
     wdg = Widget([:marked => marked]; output=marked)
     @layout! wdg hbox(dom"div"(pr, style=Dict("width"=>"75%")),
-                      dom"div"(table, style=Dict("width"=>"25%")))
+                      dom"div.interact-widget"(table, style=Dict("width"=>"25%")))
 end
 
 """

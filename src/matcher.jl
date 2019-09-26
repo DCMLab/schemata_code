@@ -11,38 +11,36 @@ export schemamatches, matchpiece
 
 makefsa(schemas) = compile(words2nfa(schemas))
 
-function relatives(ps::Vector{T}) where T
+function relatives(ps)
     ref = ps[1]
-    map(p -> pc(p-ref), ps[2:end])
+    map(p -> ic(p-ref), ps[2:end])
 end
 
-schemamatches(notes, schema::Vector{Vector{MidiPitch}}, k1, k2) =
+schemamatches(notes, schema::Vector{Vector{Pitch}}, k1, k2) =
     schemamatches(notes, [schema], k1, k2)
 
-function schemamatches(notes, schemas::Vector{Vector{Vector{MidiPitch}}}, k1, k2, p2=1.0)
-    nv = length(schemas[1][1]) # voices
-    ns = length(schemas[1])    # stages
+function schemamatches(notes, schemas, k1, k2, p2=1.0)
+    ns, nv = size(schemas[1])
 
-    if !all(schema -> all(s -> length(s) == nv, schema), schemas)
-        error("All schemata must have the same number of voices")
-    end
-    if !all(schema -> length(schema) == ns, schemas)
-        error("All schemata must have the same number of stages")
+    if !all(schema -> size(schema) == (ns, nv), schemas)
+        error("All schemata must have the same dimensions")
     end
 
     # use automata to match verticals and horizontals according to schemas
-    vertfsa = makefsa(map(relatives, vcat(schemas...)))
-    horifsa = makefsa(schemas)
+    vertfsa = makefsa(map(relatives, vcat(map(collect ∘ eachrow,schemas)...)))
+    horifsa = makefsa(map(collect∘eachrow, schemas))
 
     # predicate for horizontals: match and no overlap
     function horipred(pfx::plist{T}) where T
+        # notes = permutedims(hcat(map(s -> map(pitch,s), reverse(collect(T,pfx)))...))
+        # @show notes
         pfxcand = schemarep(reverse(collect(T,pfx)))
-        nooverlap(pfx) && preaccepts(horifsa, pfxcand)
+        nooverlap(pfx) && preaccepts(horifsa, eachrow(pfxcand))
     end
 
     # compute all verticals but filter for interval pattern matches
     verts = Iterators.filter(skipgrams(notes, Float64(k1), nv, onsetcost, stable=true)) do vert
-        accepts(vertfsa, relatives(sort!(pitch.(vert))))
+        accepts(vertfsa, relatives(sort!((tointerval∘pitch).(vert))))
     end
     # compute horizontals and filter for schema matches on the fly
     skipgrams(verts, Float64(k2), ns, groupdist(k2), horipred, p=p2)
@@ -113,23 +111,39 @@ totalduration(poly) =
 instageskip(poly) =
     sum(stage -> onsetcost(stage[1], stage[end]), poly)
 
-function sortschema(notes::Vector{Vector{N}}) where {N<:Note}
-    cand = map(pitches, notes) # extract pitches from timed notes
-    map(sort!, cand)           # sort pitch groups (lowest to highest)
-    ref = cand[1][1]           # transpose -> reference pitch = 0, pc(...):
-    for i in 1:length(cand)
-        for j in 1:length(cand[i])
-            cand[i][j] = cand[i][j] - ref
-        end
+# function sortschema(notes::Vector{Vector{N}}) where {N<:Note}
+#     cand = map(s -> map(tointerval, pitches(s)), notes) # extract pitches from timed notes
+#     map(sort!, cand)           # sort pitch groups (lowest to highest)
+#     ref = cand[1][1]           # transpose -> reference pitch = 0, pc(...):
+#     for i in 1:length(cand)
+#         for j in 1:length(cand[i])
+#             cand[i][j] = cand[i][j] - ref
+#         end
+#     end
+#     cand
+# end
+
+function octdiv(int)
+    octs = 0
+    oct = octave(int)
+    # count full octaves in the interval
+    while int >= oct
+        int -= oct
+        octs += 1
     end
-    cand
+    # add another octave for >= fifths, since then going down is shorter
+    if sign(ic(int)) == -1
+        octs += 1
+    end
+    octs
 end
 
 function voicedist(poly)
-    rep = sortschema(poly)
-    sum(1:(length(rep)-1)) do s
-        sum(1:length(rep[s])) do v
-            abs(convert(Int, rep[s+1][v] - rep[s][v]))
+    rep = schemarep(poly; toic=false)
+    ns, nv = size(rep)
+    sum(1:(ns-1)) do s
+        sum(1:nv) do v
+            octdiv(abs(rep[s+1,v] - rep[s,v]))
         end
     end
 end
