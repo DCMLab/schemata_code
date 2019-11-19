@@ -71,12 +71,15 @@ lowernote(note) = if ismissing(note.id) || note.id == nothing
 else
     id(note)
 end
-     
+
+function annotfilename(pieceid, schemaid, dir="")
+    escid = replace(pieceid, r"[\\/]" => s"_")
+    joinpath(dir, schemaid, "$(escid).json")
+end
 
 function saveannots(pieceid, schemaid, polys, dir)
-    escid = replace(pieceid, r"[\\/]" => s"_")
-    fn = joinpath(dir, "$(escid)_$(schemaid).json")
-
+    fn = annotfilename(pieceid, schemaid, dir)
+    
     loweredpolys = map(polys) do poly
         map(poly) do stage
             map(lowernote, stage)
@@ -89,8 +92,7 @@ function saveannots(pieceid, schemaid, polys, dir)
 end
 
 function loadannots(pieceid, schemaid, dir, notedict)
-    escid = replace(pieceid, r"[\\/]" => s"_")
-    fn = joinpath(dir, "$(escid)_$(schemaid).json")
+    fn = annotfilename(pieceid, schemaid, dir)
     
     annots = JSON.parsefile(fn)
     map(annots["instances"]) do instance
