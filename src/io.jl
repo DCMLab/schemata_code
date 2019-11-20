@@ -85,7 +85,8 @@ function saveannots(pieceid, schemaid, polys, dir)
             map(lowernote, stage)
         end
     end
-    
+
+    mkpath(dirname(fn))
     open(fn, "w") do file
         JSON.print(file, (piece=pieceid, schema=schemaid, instances=loweredpolys), 2)
     end
