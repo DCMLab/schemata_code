@@ -74,7 +74,7 @@ end
 
 function annotfilename(pieceid, schemaid, dir="")
     escid = replace(pieceid, r"[\\/]" => s"_")
-    joinpath(dir, schemaid, "$(escid).json")
+    joinpath(dir, schemaid, "$(escid)_$(schemaid).json")
 end
 
 function saveannots(pieceid, schemaid, polys, dir)
@@ -108,5 +108,25 @@ function loadannots(pieceid, schemaid, dir, notedict)
                 end
             end
         end
+    end
+end
+
+# groups
+########
+
+function savegroups(pieceid, schemaid, groups, dir)
+    fn = annotfilename(pieceid, schemaid, dir)
+    
+    loweredgroups = map(groups) do group
+        map(group) do poly
+            map(poly) do stage
+                map(lowernote, stage)
+            end
+        end
+    end
+
+    mkpath(dirname(fn))
+    open(fn, "w") do file
+        JSON.print(file, (piece=pieceid, schema=schemaid, groups=loweredgroups), 0)
     end
 end

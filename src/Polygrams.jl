@@ -23,7 +23,7 @@ include("helpers.jl")
 
 export verticals, horizontals, schemarep, piecebarlen
 export findfirsthoriz
-export savepolys, loadpolys, polystodf
+export savepolys, loadpolys, savegroups, polystodf
 
 # generate polygrams
 # ==================

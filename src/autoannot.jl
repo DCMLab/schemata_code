@@ -284,8 +284,8 @@ function markschemaswdg(notes, xml, schemas; timesigs=nothing, initial=nothing)
 end
 
 """
-        annotateview(pieceid, schemaids, weights;
-                     lexicon, annotdir, cachedir, corpus)
+    annotateview(pieceid, schemaids, weights;
+                 lexicon, annotdir, cachedir, corpus)
 
 Returns a view for annotating schemata in a piece.
 """
