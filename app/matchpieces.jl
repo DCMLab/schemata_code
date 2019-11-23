@@ -68,16 +68,19 @@ function matchpiece(piece, pattern; trim=nothing)
     featureweights = [1, -1, -2] # maaaaaagic
     
     # run the matcher
-    print(" matching")
+    print("\tmatching")
     polyitr = Polygrams.schemamatches(notes, [pattern], barlen, barlen)
     polys = collect(polyitr)
-    print(" sorting")
+    print(" ($(length(polys)))")
+    print("\tsorting")
     sorted = Polygrams.sortbyheuristics(polys, featurefs, featureweights)
     # scores = Dict(poly => Polygrams.rate(poly, featurefs, featureweights) for poly in polys)
 
     # find groups
-    print(" grouping")
-    best = Polygrams.bestmatches(!Polygrams.polyssharetime, sorted)
+    print("\tfiltering")
+    best = Polygrams.bestmatchestime(sorted)
+    print(" ($(length(best)))")
+    print("\tgrouping")
     groups = map(b -> Polygrams.findcompetitors(Polygrams.polyssharetime, b, sorted), best)
 
     if trim != nothing
@@ -103,9 +106,9 @@ function matchcorpus(corpusdir, outdir, schema, pattern; trim=nothing, force=fal
         outfile = Polygrams.annotfilename(piece, schema, outdir)
         if !isfile(outfile) || mtime(infile) > mtime(outfile) || force
             groups = matchpiece(piece, pattern; trim=trim)
-            print(" writing")
+            print("\twriting")
             Polygrams.savegroups(piece, schema, groups, outdir)
-            println(" done.")
+            println("\tdone.")
         else
             println(" already up to date.")
         end

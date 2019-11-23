@@ -95,6 +95,27 @@ function bestmatches(compat, sortedpolys::Vector{P}) where {P}
     results
 end
 
+function bestmatchestime(sortedpolys::Vector{P}) where {P}
+    disjoint((l1,u1), (l2,u2)) = u1 <= l2 || u2 <= l1
+    strictdisjoint((l1,u1), (l2,u2)) = u1 < l2 || u2 < l1
+    results = P[]
+    covered = [] # time segments covered so far
+    for poly in sortedpolys
+        prange = polyrange(poly)
+        # check if still free
+        if all(crange -> disjoint(prange, crange), covered)
+            push!(results, poly)
+        end
+        # merge into covered
+        old = collect(filter(c -> strictdisjoint(c, prange), covered))
+        overlapping = push!(collect(filter(c -> !strictdisjoint(c, prange), covered)), prange)
+        lower = minimum(x[1] for x in overlapping)
+        upper = maximum(x[2] for x in overlapping)
+        covered = push!(old, (lower,upper))
+    end
+    results
+end
+
 findcompetitor(iscompet, poly, others) =
     others[findfirst(o -> iscompet(poly, o), others)]
 
