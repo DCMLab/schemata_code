@@ -86,6 +86,8 @@ function saveannots(pieceid, schemaid, polys, dir)
         end
     end
 
+    unique!(loweredpolys)
+
     mkpath(dirname(fn))
     open(fn, "w") do file
         JSON.print(file, (piece=pieceid, schema=schemaid, instances=loweredpolys), 2)
@@ -124,6 +126,8 @@ function savegroups(pieceid, schemaid, groups, dir)
             end
         end
     end
+
+    unique!(loweredgroups)
 
     mkpath(dirname(fn))
     open(fn, "w") do file

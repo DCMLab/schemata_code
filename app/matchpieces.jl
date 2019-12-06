@@ -7,17 +7,17 @@ Base.CoreLogging.disable_logging(Base.CoreLogging.Warn)
 s = ArgParseSettings()
 @add_arg_table s begin
     "--trim", "-t"
-    help = "the number of alternatives to keep per match (default 100)"
+    help = "the number of alternatives to keep per match"
     arg_type = Int
     default = 100
     "--lexicon", "-l"
-    help = "path to the lexicon.json file (default \"lexicon.json\")"
+    help = "path to the lexicon.json file"
     default = "lexicon.json"
     "--out", "-o"
-    help = "the output will be saved to <dir>/<out>/<schema>/piece.json (default \"groups\")"
+    help = "the output will be saved to <dir>/<out>/<schema>/piece.json"
     default = "groups"
     "--in", "-i"
-    help = "the input directory will be <dir>/<in> (default \"musicxml\")"
+    help = "the input directory will be <dir>/<in>"
     default = "musicxml"
     "--force", "-f"
     help = "re-match existing files, even if the input file hasn't changed"
@@ -106,6 +106,7 @@ function matchcorpus(corpusdir, outdir, schema, pattern; trim=nothing, force=fal
         outfile = Polygrams.annotfilename(piece, schema, outdir)
         if !isfile(outfile) || mtime(infile) > mtime(outfile) || force
             groups = matchpiece(piece, pattern; trim=trim)
+            sort!(groups, by=g -> onset(g[1][1][1]))
             print("\twriting")
             Polygrams.savegroups(piece, schema, groups, outdir)
             println("\tdone.")
