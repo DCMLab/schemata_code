@@ -39,8 +39,6 @@ println("Generating matches for $(schema) in $(dir)")
 include("../src/Polygrams.jl")
 using DigitalMusicology
 
-# TODO: add incremental build + force option
-
 """
     matchpiece(piece, pattern)
 
