@@ -112,8 +112,8 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DigitalMusicology]]
 deps = ["CSV", "DataFrames", "EzXML", "FunctionalCollections", "IterTools", "JSON", "LightXML", "MIDI", "NodeJS", "Primes", "Query", "Ratios", "Reexport"]
-git-tree-sha1 = "aafeaacea2e72a4a6df8c0398debe733a778b7c6"
-repo-rev = "8f41510302e62d6ef3aa55b62f11aca462cced46"
+git-tree-sha1 = "fca85d4802143b6fff8d6daee68154042bd219b3"
+repo-rev = "df635cbce76341b251e8a7de309c4d3c61e77abe"
 repo-url = "https://github.com/DCMLab/DigitalMusicology.jl"
 uuid = "2c2a18ac-9fc9-11e8-3acf-35f06862b736"
 version = "0.1.0"
@@ -323,9 +323,9 @@ version = "1.0.1"
 
 [[MbedTLS_jll]]
 deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "066a4467008745eed36dad973ceb66405785a621"
+git-tree-sha1 = "c83f5a1d038f034ad0549f9ee4d5fac3fb429e33"
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-version = "2.16.0+1"
+version = "2.16.0+2"
 
 [[Measures]]
 git-tree-sha1 = "e498ddeee6f9fdb4551ce855a46f54dbd900245f"
@@ -570,9 +570,9 @@ version = "0.6.2"
 
 [[XML2_jll]]
 deps = ["Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "16f427f831b517101d0424ea1af0a2d31a5b6a1b"
+git-tree-sha1 = "987c02a43fa10a491a5f0f7c46a6d3559ed6a8e2"
 uuid = "02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a"
-version = "2.9.9+3"
+version = "2.9.9+4"
 
 [[Zlib_jll]]
 deps = ["Libdl", "Pkg"]

@@ -124,9 +124,16 @@ function pickinstance(instance)
     for stage in instance
         for slot in stage
             if firstslot
-                prefixes = [(notes=DS.list(note), on=note.onset, off=note.offset, after=nothing) for note in slot]
+                prefixes = [(notes=DS.list(note),
+                             on=note.onset,
+                             off=note.offset,
+                             after=nothing)
+                            for note in slot]
             else
-                prefixes = [(notes=DS.cons(note, pfx.notes), on=min(pfx.on, note.onset), off=max(pfx.off, note.offset), after=pfx.after)
+                prefixes = [(notes=DS.cons(note, pfx.notes),
+                             on=min(pfx.on, note.onset),
+                             off=max(pfx.off, note.offset),
+                             after=pfx.after)
                             for pfx in prefixes
                             for note in slot
                             if isnothing(pfx.after) || note.onset > pfx.after]
