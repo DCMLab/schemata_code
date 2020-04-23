@@ -4,6 +4,8 @@
 include("fsa.jl")
 using .Automata
 
+using Distances
+
 export schemamatches, matchpiece
 
 # Matching Schemata
@@ -78,6 +80,17 @@ end
 
 transitiveoverlap(polys) = transitiverel(polyssharenotes, polys)
 
+rate(poly, fs, weights) =
+    dot(map(f -> f(poly), fs), weights)
+
+function sortbyheuristics(polys, fs, weights)
+    ratingf(poly) = rate(poly, fs, weights)
+    map(first, sortbyweight(polys, ratingf))
+end
+
+bestrated(polys, fs, weights) = bestmatches(!polyssharetime, sortbyheuristics(polys, fs, weights))
+
+
 function sortbyweight(polys, weight)
     weighted = map(p->(p,weight(p)), polys)
     sort!(weighted, rev=true, by=x->x[2])
@@ -126,24 +139,34 @@ findcompetitors(iscompet, poly, others) =
 # heuristics
 # ----------
 
+"""
+    totalduration(poly)
+
+Returns the sum of the duration of all notes in `poly`.
+"""
 totalduration(poly) =
     sum(stage -> sum(duration, stage), poly)
 
+"""
+    instageskip(poly)
+
+Returns the sum of the IOIs between the first and last note in each stage.
+"""
 instageskip(poly) =
     sum(stage -> onsetcost(stage[1], stage[end]), poly)
 
-# function sortschema(notes::Vector{Vector{N}}) where {N<:Note}
-#     cand = map(s -> map(tointerval, pitches(s)), notes) # extract pitches from timed notes
-#     map(sort!, cand)           # sort pitch groups (lowest to highest)
-#     ref = cand[1][1]           # transpose -> reference pitch = 0, pc(...):
-#     for i in 1:length(cand)
-#         for j in 1:length(cand[i])
-#             cand[i][j] = cand[i][j] - ref
-#         end
-#     end
-#     cand
-# end
+"""
+    octdiv(interval)
 
+Returns the number of octaves in `interval`.
+If `interval` is the smallest possible interval between two pitch classes,
+i.e. everything smaller than a fifth,
+this is defined to be 0.
+For every other interval, the difference in octaves between the smallest possible interval
+and the given interval is returned.
+E.g. the `octdiv` of a fifth up is 1
+since it is the same as a fourth down (0, shortest way in pitch-class space) + 1 octave up. 
+"""
 function octdiv(int)
     octs = 0
     oct = octave(int)
@@ -159,6 +182,12 @@ function octdiv(int)
     octs
 end
 
+"""
+    voicedist(poly)
+
+Returns the number of additional octaves by which each voice moves
+compared to the local minimal voice leading for the given interval-class pattern.
+"""
 function voicedist(poly)
     rep = schemarep(poly; toic=false)
     ns, nv = size(rep)
@@ -169,18 +198,66 @@ function voicedist(poly)
     end
 end
 
+"""
+    mweight(tsm)(note)
+
+Returns the metric weight of `note` under the time signature map `tsm`.
+"""
+mweight(tsm) = note -> metricweight(onset(note), tsm)
+
+"""
+    polymweight(poly)
+
+Returns the total metric weight of all notes in `poly`.
+"""
 polymweight(poly, tsm) =
-    sum(stage -> sum(note -> metricweight(onset(note), tsm), stage), poly)
+    sum(stage -> sum(mweight(tsm), stage), poly)
 
-rate(poly, fs, weights) =
-    dot(map(f -> f(poly), fs), weights)
+## stage similarity heuristics
 
-function sortbyheuristics(polys, fs, weights)
-    ratingf(poly) = rate(poly, fs, weights)
-    map(first, sortbyweight(polys, ratingf))
+# general functions
+
+"""
+    sortpolyvoices(poly)
+
+Returns a copy of `poly` in which each stage is sorted by pitch.
+"""
+sortpolyvoices(poly) = map(stage -> sort(stage, by=pitch), poly)
+
+"""
+    comparestages(dist, poly; sortvoices=true)
+
+Applies `dist` to every pair of stages in `poly`
+and returns the sum of the resulting values.
+If `sortvoices` is `true`, the stages are first sorted by pitch.
+"""
+function comparestages(dist, poly; sortvoices=true)
+    if sortvoices
+        poly = sortpolyvoices(poly)
+    end
+
+    sum(dist(s1,s2) for (i,s1) in enumerate(poly) for s2 in poly[i+1:end])
 end
 
-bestrated(polys, fs, weights) = bestmatches(!polyssharetime, sortbyheuristics(polys, fs, weights))
+# metric distance
+
+"""
+    dmetric(tsm, stage1, stage2)
+
+Returns the euklidean distance between the metric weight vectors
+of the notes in `stage1` and `stage2`.
+"""
+dmetric(tsm) = function(stage1, stage2)
+    euclidean(map(mweight(tsm), stage1), map(mweight(tsm), stage2))
+end
+
+"""
+    metricstagedist(poly, tsm)
+
+Returns the sum of metric weight distances between all pairs of stages in `poly`.
+The metric weight is calculated with respect to the time signature map `tsm`.
+"""
+metricstagedist(poly, tsm) = comparestages(dmetric(tsm), poly)
 
 # fitting
 # -------
