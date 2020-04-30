@@ -153,7 +153,10 @@ totalduration(poly) =
 Returns the sum of the IOIs between the first and last note in each stage.
 """
 instageskip(poly) =
-    sum(stage -> onsetcost(stage[1], stage[end]), poly)
+    sum(poly) do stage
+        onsets = map(onset,filter(!ismissing, stage))
+        maximum(onsets) - minimum(onsets)
+    end
 
 """
     octdiv(interval)
@@ -167,6 +170,10 @@ and the given interval is returned.
 E.g. the `octdiv` of a fifth up is 1
 since it is the same as a fourth down (0, shortest way in pitch-class space) + 1 octave up. 
 """
+function octdiv end
+
+octdiv(::Missing) = 0
+
 function octdiv(int)
     octs = 0
     oct = octave(int)
@@ -189,11 +196,20 @@ Returns the number of additional octaves by which each voice moves
 compared to the local minimal voice leading for the given interval-class pattern.
 """
 function voicedist(poly)
-    rep = schemarep(poly; toic=false)
+    rep = map(tointerval ∘ pitch, schemamatrix(poly))
     ns, nv = size(rep)
     sum(1:(ns-1)) do s
         sum(1:nv) do v
-            octdiv(abs(rep[s+1,v] - rep[s,v]))
+            if ismissing(rep[s,v])
+                0 # ignore
+            else
+                comp = findnext(!ismissing, rep[:, v], s+1)
+                if comp == nothing
+                    0
+                else
+                    octdiv(abs(rep[comp,v] - rep[s,v]))
+                end
+            end
         end
     end
 end

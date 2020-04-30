@@ -4,35 +4,8 @@ import DataStructures
 
 const DS = DataStructures
 
-# Saving and Loading Polygrams
-# ============================
-
-savepolys(fn, polys) = FileIO.save(fn, "polygrams", polys)
-
-loadpolys(fn) = FileIO.load(fn, "polygrams")
-
-# function loadlexicon(fn)
-#     json = JSON.parsefile(fn, dicttype=DataStructures.OrderedDict)
-#     DataStructures.OrderedDict(name => map(midis,def) for (name,def) in json)
-# end
-
-function loadlexicon(fn)
-    # converts lexicon entry to schema prototype
-    function mkschema(def)
-        # guess pitch type based on json value type
-        if isa(def[1][1], Int)
-            ints = map(midis, def)
-        else
-            ints = map(stage -> map(parsespelled, stage), def)
-        end
-        schemarep(collect(permutedims(hcat(ints...))); sortstages=false)
-    end
-
-    json = JSON.parsefile(fn, dicttype=DataStructures.OrderedDict)
-    DataStructures.OrderedDict(name => mkschema(def) for (name, def) in json)
-end
-
-# helpers for saving 
+# Helpers for saving certain types
+# ================================
 
 lowerrational(r::Rational) = (numerator=numerator(r), denominator=denominator(r))
 lowerrational(x) = x
@@ -51,25 +24,6 @@ JSON.lower(i::MidiIC) = i.ic
 JSON.lower(i::SpelledInterval) = JSON.lower((d=i.d,c=i.c))
 JSON.lower(i::SpelledIC) = JSON.lower((f=i.fifth))
 
-# function saveannots(pieceid, schemaid, polys, dir)
-#     escid = replace(pieceid, r"[\\/]" => s"_")
-#     fn = joinpath(dir, "$(escid)_$(schemaid).json")
-
-#     loweredpolys = map(polys) do poly
-#         map(poly) do stage
-#             map(stage) do note
-#                 (pitch = pitch(note),
-#                  onset = lowerrational(onset(note)),
-#                  offset = lowerrational(offset(note)))
-#             end
-#         end
-#     end
-
-#     open(fn, "w") do file
-#         JSON.print(file, (piece=pieceid, schema=schemaid, instances=loweredpolys), 2)
-#     end
-# end
-
 lowernote(note) = if ismissing(note.id) || note.id == nothing
     (pitch = pitch(note),
      onset = lowerrational(onset(note)),
@@ -78,8 +32,38 @@ else
     id(note)
 end
 
+# Saving and loading the lexicon
+# ==============================
+
+function loadlexicon(fn)
+    # converts lexicon entry to schema prototype
+    function mkschema(def)
+        # guess pitch type based on json value type
+        if isa(def[1][1], Int)
+            ints = map(midis, def)
+        else
+            ints = map(stage -> map(parsespelled, stage), def)
+        end
+        schemarep(collect(permutedims(hcat(ints...))); sortstages=false)
+    end
+
+    json = JSON.parsefile(fn, dicttype=DataStructures.OrderedDict)
+    DataStructures.OrderedDict(name => mkschema(def) for (name, def) in json)
+end
+
+
+# Saving and loading polygrams
+# ============================
+
+savepolys(fn, polys) = FileIO.save(fn, "polygrams", polys)
+
+loadpolys(fn) = FileIO.load(fn, "polygrams")
+
+# Saving and loading annotations and suggestions
+# ==============================================
+
 # handling several instances of the same note
-#############################################
+# -------------------------------------------
 
 """
     mknotedict(notes)
@@ -136,7 +120,7 @@ function pickinstance(instance)
                              after=pfx.after)
                             for pfx in prefixes
                             for note in slot
-                            if isnothing(pfx.after) || note.onset > pfx.after]
+                            if isnothing(pfx.after) || note.onset >= pfx.after]
             end
             
             firstslot = false
@@ -160,6 +144,10 @@ function pickinstance(instance)
         end
     end
 
+    if minpfx == nothing
+        error("no valid instance: $instance")
+    end
+
     # convert prefix to a proper instance:
     # go through the input instance and always pick the next note from the list 
     notes = reverse(minpfx.notes)
@@ -174,8 +162,87 @@ function pickinstance(instance)
     return pickedinst
 end
 
-# annotations
-#############
+# Handling implicit notes
+# -----------------------
+#
+# Notes can be implicit (missing in the musical surface or in annotations) if
+# - the same IC appears in the same voice in the previous stage
+# - the same IC is used by two adjacent voices in the same stage (voices can "merge")
+
+"""
+    findimplicits(schema)
+
+Takes a schema from the lexicon (matrix)
+and returns a boolean matrix that indicates for each note
+whether it can be implicit.
+"""
+function findimplicits(schema)
+    implicits = falses(size(schema))
+    
+    for pos in CartesianIndices(schema)
+        # look at current interval
+        int = schema[pos]
+        
+        # get predecessor if not out of bounds
+        pred = get(schema, pos + CartesianIndex(-1,0), nothing)
+        # get lower neighbor if not out of bounds
+        lowernb = get(schema, pos + CartesianIndex(0,-1), nothing)
+
+        # any of them equal to the current interval?
+        if int == pred || int == lowernb
+            implicits[pos] = true
+        end
+    end
+
+    return implicits
+end
+
+"""
+    ambimp(schema)
+
+Takes a schema matrix and checks for ambiguous implicits
+(rows with more than one implicit).
+"""
+ambimp(schema) = any(>(1), sum(findimplicits(schema), dims=2))
+
+function resolveimplicits(instance, schema, implicitmask=findimplicits(schema))
+    nvoices = size(schema)[2]
+    ref = pitch(instance[1][1])
+
+    # check all stages
+    new = map(enumerate(instance)) do (is, stage)
+        if length(stage) == nvoices
+            copy(stage) # stage has full length? all good
+        else
+            # stage to short? fill with missings
+            newstage = Union{eltype(stage),Missing}[]
+            off = 0
+            for iv in 1:nvoices
+                if iv-off > length(stage)
+                    nextnote = nothing
+                else
+                    nextnote = stage[iv-off]
+                end
+                
+                if !isnothing(nextnote) && ic(pitch(nextnote)-ref) == schema[is,iv]
+                    push!(newstage, nextnote)
+                elseif implicitmask[is,iv]
+                    push!(newstage, missing)
+                    off = off + 1
+                else
+                    error("found inconsistent schema stage $is: $stage in $schema.")
+                end
+            end
+            newstage
+        end
+    end
+
+    T = Union{eltype(instance[1]), Missing}
+    convert(Vector{Vector{T}}, new)
+end
+
+# Annotations
+# -----------
 
 function annotfilename(pieceid, schemaid, dir="")
     escid = replace(pieceid, r"[\\/]" => s"_")
@@ -205,7 +272,7 @@ function loadannots(pieceid, schemaid, dir, notedict; pick=false)
     annots = JSON.parsefile(fn)
     map(annots["instances"]) do instance
         inst = map(instance) do stage
-            map(stage) do note
+            outstage = map(stage) do note
                 if isa(note, String)
                     notedict[note]
                 else
@@ -216,15 +283,17 @@ function loadannots(pieceid, schemaid, dir, notedict; pick=false)
             end
         end
         if pick
-            pickinstance(inst)
-        else
-            inst
+            inst = pickinstance(inst)
         end
+        for stage in inst
+            sort!(stage, by=n->pitch(n).pitch)
+        end
+        inst
     end
 end
 
-# groups
-########
+# Suggestions (Groups)
+# --------------------
 
 function savegroups(pieceid, schemaid, groups, dir)
     fn = annotfilename(pieceid, schemaid, dir)
@@ -254,7 +323,11 @@ function loadgroups(pieceid, schemaid, dir, notedict; pick=false)
             inst = map(instance) do stage
                 map(stage) do note
                     if isa(note, String)
-                        notedict[note]
+                        if haskey(notedict, note)
+                            notedict[note]
+                        else
+                            error("unknown note: $note")
+                        end
                     else
                         TimedNote(note[:pitch],
                                   raiserational(note[:onset]),
@@ -263,10 +336,12 @@ function loadgroups(pieceid, schemaid, dir, notedict; pick=false)
                 end
             end
             if pick
-                pickinstance(inst)
-            else
-                inst
+                inst = pickinstance(inst)
             end
+            for stage in inst
+                sort!(stage, by=n->pitch(n).pitch)
+            end
+            inst
         end
     end
 end

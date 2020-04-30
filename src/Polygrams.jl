@@ -20,6 +20,7 @@ using LinearAlgebra: dot
 # internal dependencies
 
 include("helpers.jl")
+include("common.jl")
 
 export verticals, horizontals, schemarep, piecebarlen
 export findfirsthoriz
@@ -43,35 +44,6 @@ end
 
 function horizontals(verticals, k, n, p=1.0)
     skipgrams(verticals, k, n, groupdist(k), nooverlap, p=p)
-end
-
-# transforms polygram to representant of schema equivalence class:
-# [1][1] is the reference pitch (always 0), rest is pc relative to reference
-# order of groups = temporal, order of notes = original pitch ascending
-function schemarep(notes::Vector{Vector{N}}; kwargs...) where {N<:Note}
-    s = length(notes)
-    v = length(notes[1])
-    m = Array{typeof(tointerval(pitch(notes[1][1]))),2}(undef, s, v)
-    for i in 1:s
-        for j in 1:v
-            m[i,j] = tointerval(pitch(notes[i][j]))
-        end
-    end
-    schemarep(m;kwargs...) # extract pitches from timed notes
-end
-
-function schemarep(ints::Array{I,2}; toic=true, sortstages=true) where {I<:Interval}
-    if sortstages
-        ints = sort(ints, dims=2) # sort pitch groups (lowest to highest)
-    end
-    ref = ints[1,1]    # transpose -> reference pitch = 0, pc(...):
-    map(ints) do int
-        if toic
-            ic(int - ref)
-        else
-            int - ref
-        end
-    end
 end
 
 function piecebarlen(piece, corpus=getcorpus())
