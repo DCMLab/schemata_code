@@ -1,9 +1,9 @@
 # classify.jl
 
+using Random
 using DigitalMusicology
 using DataFrames
 using GLM
-using MLBase
 
 #include("common.jl")
 #include("io.jl")
@@ -113,14 +113,15 @@ Helper function to check if a schema instance is missing notes.
 """
 hasmissings(inst) = length(Set(map(length,inst))) > 1
 
+shuffledf(df) = df[shuffle(1:(size(df)[1])), :]
 
 """
-    cleancorpusdata!(df, lexicon)
+    cleancorpusdata(df, lexicon)
 
 Takes a dataframe with corpus data and a schema lexicon.
 Performs some post-processing on the dataframe, such as resolving implicit notes.
 """
-function cleancorpusdata!(df, lexicon)
+function cleancorpusdata(df, lexicon)
     notescol = map(df.notesraw, df.schema, df.piece) do notes, schema, piece
         try
             Polygrams.resolveimplicits(notes, lexicon[schema])
@@ -129,9 +130,48 @@ function cleancorpusdata!(df, lexicon)
             missing
         end
     end
+    df = copy(df)
     df.notes = notescol
 
-    return df[(!ismissing).(df.notes), :]
+    df = df[(!ismissing).(df.notes), :]
+
+    return shuffledf(df)
+end
+
+"""
+    upsample(df)
+
+Upsamples a dataframe to have a balanced isinstance column.
+"""
+function upsample(df, ratio=1)
+    dftrues = df[df.isinstance, :]
+    dffalses = df[.! df.isinstance, :]
+
+    nf = size(dffalses)[1]
+    nt = Int(round(nf * ratio))
+
+    newtrues = dftrues[sample(1:size(dftrues)[1], nt), :]
+    newdf = vcat(dffalses, newtrues)
+
+    return shuffledf(newdf)
+end
+
+"""
+    downsample(df)
+
+Downsamples a dataframe to have a balanced isinstance column.
+"""
+function downsample(df, ratio=1)
+    dftrues = df[df.isinstance, :]
+    dffalses = df[.! df.isinstance, :]
+
+    nt = size(dftrues)[1]
+    nf = Int(round(nt * ratio))
+
+    newfalses = dffalses[sample(1:size(dffalses)[1], nt), :]
+    newdf = vcat(dftrues, newfalses)
+
+    return shuffledf(newdf)
 end
 
 # Evaluating the features
@@ -203,6 +243,7 @@ function evaluation(df)
     recall = tp / (tp + fn)
 
     println("precision:\t", precision)
-    println("recall:\t", recall)
+    println("recall:\t\t", recall)
     println("f1-score:\t", 2 * precision*recall / (precision + recall))
+    println("MCC:\t\t", (tp * tn - fp * fn) / sqrt((1.0*tp+fp) * (tp+fn) * (tn+fp) * (tn+fn))) 
 end
