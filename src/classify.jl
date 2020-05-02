@@ -4,6 +4,9 @@ using Random
 using DigitalMusicology
 using DataFrames
 using GLM
+using ProgressMeter
+using Plots; gr()
+using StatsPlots
 
 #include("common.jl")
 #include("io.jl")
@@ -30,7 +33,7 @@ function loadpiecedata(corpusdir, pieceid, schemaids)
 
     notes = getpiece(pieceid, :notes, :musicxml, type=:notes, keepids=true, unfold=true)
     timesigs = getpiece(pieceid, :timesigs, :musicxml, nowarn=true)
-    beatfactor = denominator(content(timesigs[1][1]))
+    beatfactor = convert(Float64, denominator(content(timesigs[1][1])))
 
     notedict = Polygrams.mknotedict(notes)
     total = 0
@@ -58,7 +61,7 @@ function loadpiecedata(corpusdir, pieceid, schemaids)
             append!(schemacol, fill(schemaid, both))
         catch e
             if isa(e, SystemError) # mainly because file doesn't exist
-                @warn "error loading $(schemaid) for $(pieceid)"
+                #@warn "error loading $(schemaid) for $(pieceid)"
             else
                 throw(e)
             end
@@ -92,8 +95,8 @@ function loadcorpusdata(corpusdir, schemaids)
     pieces = allpieces()
     df = nothing
     
-    for piece in pieces
-        @info "loading piece $(piece)"
+    @showprogress 1 "loading pieces..." for piece in pieces
+        #@info "loading piece $(piece)"
         piecedf = loadpiecedata(corpusdir, piece, schemaids)
 
         if df == nothing
@@ -113,6 +116,30 @@ Helper function to check if a schema instance is missing notes.
 """
 hasmissings(inst) = length(Set(map(length,inst))) > 1
 
+function findgroups(df)
+    groupcol = missings(Union{Missing,Int}, size(df)[1])
+
+    instances = df[df.isinstance, :]
+    @showprogress 0.1 "assigning groups..." for (group, inst) in enumerate(eachrow(instances))
+        for (i, x) in enumerate(eachrow(df))
+            if ((inst.schema == x.schema) & (inst.piece == x.piece)
+                & Polygrams.polyssharetime(inst.notes, x.notes))
+                if !ismissing(groupcol[i])
+                    @warn "ambiguous group assignment"
+                end
+                groupcol[i] = group
+            end
+        end
+    end
+    
+    df = copy(df)
+    df[!, :group] = groupcol
+
+    df[!, :category] = df.isinstance .+ (.! ismissing.(df.group))
+
+    return df
+end
+
 shuffledf(df) = df[shuffle(1:(size(df)[1])), :]
 
 """
@@ -126,12 +153,12 @@ function cleancorpusdata(df, lexicon)
         try
             Polygrams.resolveimplicits(notes, lexicon[schema])
         catch e
-            @warn "incorrect instance for $schema in $piece: $e"
+            @warn "excludingincorrect instance for $schema in $piece:\n$e"
             missing
         end
     end
     df = copy(df)
-    df.notes = notescol
+    df[!, :notes] = notescol
 
     df = df[(!ismissing).(df.notes), :]
 
@@ -177,6 +204,14 @@ end
 # Evaluating the features
 # =======================
 
+DigitalMusicology.duration(::Missing) = 0
+DigitalMusicology.onset(::Missing) = missing
+DigitalMusicology.offset(::Missing) = missing
+DigitalMusicology.pitch(::Missing) = missing
+DigitalMusicology.tointerval(::Missing) = missing
+
+include("features.jl")
+
 """
     runfeatures!(df, features)
 
@@ -196,21 +231,33 @@ function runfeatures!(df, features)
     end
 end
 
-DigitalMusicology.duration(::Missing) = 0
-DigitalMusicology.pitch(::Missing) = missing
-DigitalMusicology.tointerval(::Missing) = missing
-
 feats = Dict(
-    :dur => (notes, beatf) -> 1.0 * beatf * Polygrams.totalduration(notes),
+    :dur => getDuration,
     :vdist => (notes, _) -> Polygrams.voicedist(notes),
-    :sskip => (notes, beatf) -> 1.0 * beatf * Polygrams.instageskip(notes)
+    :sskip => stageSkip,
+    :rdsums => rhythmDistanceSumInEvent,
+    :rdsumv => rhythmDistanceSumInVoice,
+    :rhytreg => rhythmicirregularity,
 )
+
+# plotting features
+# -----------------
+
+function plotfeatures(df, features; group=:category)
+    cols = collect(keys(feats))
+    n = length(cols)
+
+    ps = [density(df[:, c], group=df[:, group]) for c in cols]
+    
+    plot(ps..., layout=n)
+end
 
 # Running the model
 # =================
 
 function fitmodel(df, features)
-    glm(@formula(isinstance ~ dur + vdist + sskip), df, Bernoulli(), LogitLink())
+    form = term(:isinstance) ~ foldl(+, term.(keys(features)))
+    glm(form, df, Bernoulli(), LogitLink())
 end
 
 function addpredictions!(df, model)
@@ -218,7 +265,7 @@ function addpredictions!(df, model)
     df.predbool = df.pred .> 0.5
 end
 
-function evaluation(df)
+function showeval(df)
     gttrue = df.isinstance .== true
     gtfalse = df.isinstance .== false
     predtrue = df.predbool .== true

@@ -79,8 +79,8 @@ end
 polynotes(poly) = vcat(poly...)
 
 polyrange(poly) = let
-    lower = onset(poly[1][1])
-    upper = maximum(map(offset, poly[end]))
+    lower = minimum(onset(n) for n in poly[1] if !ismissing(n))
+    upper = maximum(offset(n) for n in poly[end] if !ismissing(n))
     (lower, upper)
 end
 

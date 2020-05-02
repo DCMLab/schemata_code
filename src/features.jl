@@ -21,59 +21,107 @@ function stageSkip(poly, beatfactor)
 	return beatfactor * Polygrams.instageskip(poly)
 end
 
-
-
 ### Sum of the rhythmic distance between notes of the same event (by onset)
-function rhythmDistanceSumInEvent(poly)
-	sum = 0
-	M = size(poly)[1]	#Number of event in poly
-	
-	for event in poly
-		eventsum = 0
-		N = size(event)[1]	#Number of voices in poly
-		
-		for i = 1:N-1
-			for j = i+1:N
-				eventsum = eventsum + abs(event[i].onset - event[j].onset)
-			end
-		end
-		eventsum = (2/(N*(N-1)))*eventsum 		#Normalisation per combinaison of voices
-		sum = sum+eventsum
+function rhythmDistanceSumInEvent(poly, beatfactor)
+    # initialize sum and counter
+    sum = 0
+    npairs = 0
+
+    # go over all events
+    for event in poly
+        nv = length(event)
+
+        # sum over all pairs in that event
+	for i = 1:nv-1
+	    for j = i+1:nv
+                dist = abs(onset(event[i]) - onset(event[j]))
+                if !ismissing(dist)
+                    npairs = npairs + 1
+		    sum = sum + dist
+                end
+	    end
 	end
-
-	sum = (1/M)*sum		#Normalisation per event
-
-	return sum
+        
+    end
+    
+    return beatfactor * (1/npairs) * sum #Normalisation per event
 end
 
 
 ### Sum of the rythmic distance between notes of the same voice (by onset)
-function rhythmDistanceSumInVoice(poly)
-	sum = 0
-	nbevent = size(poly)[1]
-	nbvoice = size(poly[1])[1]
+function rhythmDistanceSumInVoice(poly, beatfactor)
+    # initialize sum and counter
+    sum = 0
+    npairs = 0
 
-	for i = 1:nbvoice
-		voiceonsets = []
-		for event in poly
-			push!(voiceonsets, event[i].onset)
-		end
-		
-		voicesum = 0
-		for j = 1:nbevent-1
-			for k = j+1:nbevent
-				voicesum = voicesum + abs(voiceonsets[j]-voiceonsets[k])
-			end
-		end
-		voicesum = (2/(nbevent*(nbevent-1)))*voicesum	#Normalisation per combinaison of events
-		sum = sum+voicesum
+    # dimensions
+    nbevent = length(poly)
+    nbvoice = length(poly[1])
+
+    # go over all voices
+    for i = 1:nbvoice
+
+        #sum over all pairs in each voice
+	for j = 1:nbevent-1
+	    for k = j+1:nbevent
+                dist = abs(onset(poly[j][i]) - onset(poly[k][i]))
+                if !ismissing(dist)
+                    npairs = npairs + 1
+		    sum = sum + dist
+                end
+	    end
 	end
-
-	sum = (1/nbvoice)*sum		#Normalisation per number of voices
-
-	return sum
+    end
+    
+    return beatfactor * (1/npairs) * sum
 end
 
+function rhythmicdist(stage1, stage2)
+    n = length(stage1)
+    npairs = 0
+    mindist = Inf
+
+    for j in 1:n
+        offset = onset(stage2[j]) - onset(stage1[j])
+        if !ismissing(offset)
+            npairs = npairs + 1
+            dist = sum(onset(stage2[i]) - onset(stage1[i]) - offset
+                       for i in 1:n
+                       if !ismissing(stage1[i]) & !ismissing(stage2[i]))
+            if dist < mindist
+                mindist = dist
+            end
+        end
+    end
+
+    if mindist == Inf
+        mindist = 0
+        npairs = 0
+    end
+    
+    return mindist, npairs
+end
+
+function rhythmicirregularity(poly, beatfactor)
+    n = length(poly)
+    npairs = 0
+    sum = 0
+
+    for i in 1:n-1
+        for j in i+1:n
+            d, p = rhythmicdist(poly[i], poly[j])
+            sum = sum + d
+            npairs = npairs + p
+        end
+    end
+
+    reg = beatfactor * sum / npairs
+    # if isinf(reg)
+    #     @warn "infinite reg: $beatfactor, $sum, $npairs"
+    # end
+
+    return reg
+end
 
 ### Vertical Symetricity of rhythmic distance from one event to another (by onset)
 function rhythmStageTransitionDistSum(poly)
@@ -99,7 +147,7 @@ function rhythmStageTransitionDistSum(poly)
 	end
 	distsum = (1/M)*distsum		#Normalisation per event
 
-	return(distsum)
+	return distsum
 end
 
 
