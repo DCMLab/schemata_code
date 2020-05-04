@@ -144,8 +144,8 @@ function findgroups(df)
             :inst
         end
     end
+    df[!, :category] = CategoricalArray{Symbol}(categories)
 
-    df[!, :category] = categorical{Symbol}(categories)
 
     return df
 end
