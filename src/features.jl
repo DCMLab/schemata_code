@@ -6,6 +6,8 @@ export rhythmDistanceSumInEvent, rhythmDistanceSumInVoice
 export rhythmStageTransitionDistSum, rhythmVoiceTransitionDistSum
 
 
+### VANILLA FEATURES
+
 ### Total duration of notes
 function getDuration(poly, beatfactor)
 	return beatfactor * Polygrams.totalduration(poly)
@@ -20,6 +22,9 @@ end
 function stageSkip(poly, beatfactor)
 	return beatfactor * Polygrams.instageskip(poly)
 end
+
+
+### RHYTHMIC FEATURES
 
 ### Sum of the rhythmic distance between notes of the same event (by onset)
 function rhythmDistanceSumInEvent(poly, beatfactor)
@@ -124,7 +129,7 @@ function rhythmicirregularity(poly, beatfactor)
 end
 
 ### Vertical Symetricity of rhythmic distance from one event to another (by onset)
-function rhythmStageTransitionDistSum(poly)
+function rhythmStageTransitionDistSum(poly, beatfactor)
 	dists = []
 	for event in poly
 		eventsum = 0
@@ -145,14 +150,14 @@ function rhythmStageTransitionDistSum(poly)
 			distsum = distsum + abs(dists[i]-dists[j])
 		end
 	end
-	distsum = (1/M)*distsum		#Normalisation per event
+	distsum = beatfactor * (1/M)*distsum		#Normalisation per event
 
 	return distsum
 end
 
 
 ### Horizontal Symetricity of rhythmic distance from one voice to another (by onset)
-function rhythmVoiceTransitionDistSum(poly)
+function rhythmVoiceTransitionDistSum(poly, beatfactor)
 	nbevent = size(poly)[1]
 	nbvoice = size(poly[1])[1]
 
@@ -180,6 +185,134 @@ function rhythmVoiceTransitionDistSum(poly)
 		for j = 1:nbvoice-1
 			for k = j+1:nbvoice
 				temp = temp + abs(distonsets[j][i] - distonsets[k][i])
+			end
+		end
+		temp = (1/K)*temp
+		distsum = distsum + temp
+	end
+
+	distsum = beatfactor * (1/nbvoice)*distsum
+
+	return(distsum)
+end
+
+
+### PITCH FEATURES
+
+### Sum of the pitch distance between notes of the same event (in semitones)
+function pitchDistanceSumInEvent(poly)
+    # initialize sum and counter
+    sum = 0
+    npairs = 0
+
+    # go over all events
+    for event in poly
+        nv = length(event)
+
+        # sum over all pairs in that event
+	for i = 1:nv-1
+	    for j = i+1:nv
+                dist = abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))))
+                if !ismissing(dist)
+                    npairs = npairs + 1
+		    sum = sum + dist
+                end
+	    end
+	end
+        
+    end
+    
+    return (1/npairs) * sum #Normalisation per event
+end
+
+
+### Sum of the pitch distance between notes of the same voice (in semitones)
+function pitchDistanceSumInVoice(poly)
+    # initialize sum and counter
+    sum = 0
+    npairs = 0
+
+    # dimensions
+    nbevent = length(poly)
+    nbvoice = length(poly[1])
+
+    # go over all voices
+    for i = 1:nbvoice
+
+        #sum over all pairs in each voice
+	for j = 1:nbevent-1
+	    for k = j+1:nbevent
+                dist = abs(Int(tomidi(pitch(poly[j][i]) - pitch(poly[k][i]))))
+                if !ismissing(dist)
+                    npairs = npairs + 1
+		    sum = sum + dist
+                end
+	    end
+	end
+    end
+    
+    return (1/npairs) * sum
+end
+
+
+
+### Vertical Symetricity of pitch distance from one event to another (in semitones)
+function pitchStageTransitionDistSum(poly)
+	dists = []
+	for event in poly
+		eventsum = 0
+		N = length(event)
+	
+		for i = 1:N-1
+			for j = i+1:N
+				eventsum = eventsum + abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))))
+			end
+		end
+		push!(dists, eventsum)
+	end
+	
+	M = length(dists)
+	distsum = 0
+	for i = 1:M-1
+		for j = i+1:M
+			distsum = distsum + abs(dists[i]-dists[j])
+		end
+	end
+	distsum = (1/M)*distsum		#Normalisation per event
+
+	return distsum
+end
+
+
+### Horizontal Symetricity of pitch distance from one voice to another (in semitones)
+function pitchVoiceTransitionDistSum(poly)
+	nbevent = size(poly)[1]
+	nbvoice = size(poly[1])[1]
+
+	distpitches = []
+	for i = 1:nbvoice
+		voicepitches = []
+		for event in poly
+			push!(voicepitches, pitch(event[i]))
+		end
+
+		dists = []
+		for j = 1:nbevent-1
+			for k = j+1:nbevent
+				push!(dists, abs(Int(tomidi(voicepitches[j]-voicepitches[k]))))
+			end
+		end
+		push!(distpitches, dists)
+	end
+
+	distsum = 0
+	K = length(distpitches[1])
+
+	for i = 1:K
+		temp = 0
+		for j = 1:nbvoice-1
+			for k = j+1:nbvoice
+				temp = temp + abs(distpitches[j][i] - distpitches[k][i])
 			end
 		end
 		temp = (1/K)*temp
