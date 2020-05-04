@@ -135,11 +135,26 @@ function findgroups(df)
     df = copy(df)
     df[!, :group] = groupcol
 
-    df[!, :category] = df.isinstance .+ (.! ismissing.(df.group))
+    categories = map(df.isinstance, df.group) do inst, grp
+        if ismissing(grp)
+            :noinst
+        elseif !inst
+            :overlap
+        else
+            :inst
+        end
+    end
+
+    df[!, :category] = categorical{Symbol}(categories)
 
     return df
 end
 
+"""
+    shuffledf(df)
+
+Returns a new dataframe like `df` but with shuffled rows.
+"""
 shuffledf(df) = df[shuffle(1:(size(df)[1])), :]
 
 """
@@ -240,16 +255,29 @@ feats = Dict(
     :rhytreg => rhythmicirregularity,
 )
 
-# plotting features
+# Plotting features
 # -----------------
 
-function plotfeatures(df, features; group=:category)
+function plotfeatures(df, features; group=:category, width=600, height=150, title="feature distribution")
     cols = collect(keys(feats))
     n = length(cols)
 
-    ps = [density(df[:, c], group=df[:, group]) for c in cols]
+    ps = [density(df[:, c], group=df[:, group], title="$title $c", legend=(c==:vdist ? :best : :none)) for c in cols]
     
-    plot(ps..., layout=n)
+    plot(ps..., layout=grid(n,1), size=(width, height*n))
+end
+
+function plotfeatures(df, features, schema; group=:category, width=600, height=150)
+    if schema == :all
+        schemas = levels(df.schema)
+        l = @layout grid(1, length(schemas))
+        subplots = [plotfeatures(df, features, s) for s in schemas]
+        plot(subplots..., layout = l,
+             width=width,
+             height=height*length(schemas)*length(features))
+    else
+        plotfeatures(df[df.schema .== schema, :], features, title=schema)
+    end
 end
 
 # Running the model
