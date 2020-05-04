@@ -192,7 +192,7 @@ function upsample(df, ratio=1)
     nf = size(dffalses)[1]
     nt = Int(round(nf * ratio))
 
-    newtrues = dftrues[sample(1:size(dftrues)[1], nt), :]
+    newtrues = dftrues[rand(1:size(dftrues)[1], nt), :]
     newdf = vcat(dffalses, newtrues)
 
     return shuffledf(newdf)
@@ -210,7 +210,7 @@ function downsample(df, ratio=1)
     nt = size(dftrues)[1]
     nf = Int(round(nt * ratio))
 
-    newfalses = dffalses[sample(1:size(dffalses)[1], nt), :]
+    newfalses = dffalses[rand(1:size(dffalses)[1], nt), :]
     newdf = vcat(dftrues, newfalses)
 
     return shuffledf(newdf)
@@ -258,11 +258,15 @@ feats = Dict(
 # Plotting features
 # -----------------
 
+function plotcol(df, col; group=:category, kwargs...)
+    density(df[:, col]; group=df[:, group], kwargs...)
+end
+
 function plotfeatures(df, features; group=:category, width=600, height=150, title="feature distribution")
     cols = collect(keys(feats))
     n = length(cols)
 
-    ps = [density(df[:, c], group=df[:, group], title="$title $c", legend=(c==:vdist ? :best : :none)) for c in cols]
+    ps = [plotcol(df, c; group=group, title="$title $c", legend=(c==:vdist ? :best : :none)) for c in cols]
     
     plot(ps..., layout=grid(n,1), size=(width, height*n))
 end

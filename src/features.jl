@@ -81,6 +81,14 @@ function rhythmDistanceSumInVoice(poly, beatfactor)
     return beatfactor * (1/npairs) * sum
 end
 
+"""
+    rhythmicdist(stage1, stage2)
+
+Measures the rhythmic dissimilarity between two stages,
+which is defined as the the sum of absolute distance between corresponding notes
+for the best alignment of the stages: min_o(∑_i |s1_i - s2_i - o|).
+Returns a pair of the unnormalized distance and the number of note pairs.
+"""
 function rhythmicdist(stage1, stage2)
     n = length(stage1)
     npairs = 0
@@ -90,7 +98,7 @@ function rhythmicdist(stage1, stage2)
         offset = onset(stage2[j]) - onset(stage1[j])
         if !ismissing(offset)
             npairs = npairs + 1
-            dist = sum(onset(stage2[i]) - onset(stage1[i]) - offset
+            dist = sum(abs(onset(stage2[i]) - onset(stage1[i]) - offset)
                        for i in 1:n
                        if !ismissing(stage1[i]) & !ismissing(stage2[i]))
             if dist < mindist
@@ -107,6 +115,15 @@ function rhythmicdist(stage1, stage2)
     return mindist, npairs
 end
 
+"""
+    rhythmicirregularity(poly, beatfactor)
+
+Measures the rhythmic regularity of a polygram.
+The regularity is defined as the sum of rhythmic dissimilarity
+(as defined by `rhythmicdist`) between all pairs of stages.
+The resulting value is normalized by the number of note pairs involved
+and scaled by `beatfactor`.
+"""
 function rhythmicirregularity(poly, beatfactor)
     n = length(poly)
     npairs = 0
