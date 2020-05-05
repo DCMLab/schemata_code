@@ -58,21 +58,22 @@ function polyssharetime(poly1, poly2)
 end
 
 function transitiverel(rel, items)
-    P = eltype(items)
-    Classes = EmptyList{plist{P}}
-    classes = Classes()
+    #P = eltype(items)
+    #Classes = nil#EmptyList#{plist{P}}
+    classes = []
     for item in items
-        related = Classes()
-        unreltd = Classes()
+        related = []
+        unreltd = []
         for class in classes
             if any(c -> rel(c, item), class)
-                related = cons(class, related)
+                push!(related, class)
             else
-                unreltd = cons(class, unreltd)
+                push!(unreltd, class)
             end
         end
-        joint = cons(item, foldr(append, EmptyList{P}(), related))
-        classes = cons(joint, unreltd)
+        joint = vcat([item], related...)
+        classes = unreltd
+        push!(classes, joint)
     end
     #collect(map(collect, classes))
     map(collect, collect(classes))

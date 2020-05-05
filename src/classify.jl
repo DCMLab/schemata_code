@@ -15,6 +15,29 @@ include("Polygrams.jl")
 # Loading the data
 # ================
 
+# # Loading Procedure
+# Use the following steps to load and preprocess the data
+# 1. Load the lexicon: Polygrams.loadlexicon(path)
+# 2. Load the raw data: loadcorpusdata(corpusdir, schemaids) -> df
+# 3. Clean the data (see docstring below for details): cleancorpusdata(df, lexicon) -> df'
+# 4. Find groups: findgroups(df') -> df''
+# 5. (optional) Resample/balance the data: upsample(df'') -> dfup / downsample(df'') -> dfdown
+# # Dataframe Format
+# After loading, cleaning, and assigning groups,
+# the dataframe has the following layout:
+# Rows: one row per polygram, matched or annotated
+# Columns:
+# - piece (String): id of the piece the polygram is taken from
+# - schema (String): id of the used schema variant
+# - beatfactor (Int): Int the denominator of the piece's time signature (proxy for duration of a "beat")
+# - notesraw (Vector^2{Note}: the unprocessed polygram as loaded (no missings but ragged stages)
+# - notes (Vector^2{Note?}): the resolved polygram (stages of equal size, missing notes at correct place)
+# - isinstance (Bool): is the polygram an actual schema instance or not?
+# - overlap (Int?): ID of an instance the polygram overlaps with (which has the same ID in this column)
+# - overcat (Symbol): :inst, :noinst, or :overlap (if non-instance but overlaps with instance)
+# - group (Int): ID of transitively closed overlap group for same piece/schema
+# - groupisinstance (Bool): does the "group" contain an instance?
+
 """
     loadpiecedata(corpusdir, pieceid, schemaids)
 
@@ -116,40 +139,6 @@ Helper function to check if a schema instance is missing notes.
 """
 hasmissings(inst) = length(Set(map(length,inst))) > 1
 
-function findgroups(df)
-    groupcol = missings(Union{Missing,Int}, size(df)[1])
-
-    instances = df[df.isinstance, :]
-    @showprogress 0.1 "assigning groups..." for (group, inst) in enumerate(eachrow(instances))
-        for (i, x) in enumerate(eachrow(df))
-            if ((inst.schema == x.schema) & (inst.piece == x.piece)
-                & Polygrams.polyssharetime(inst.notes, x.notes))
-                if !ismissing(groupcol[i])
-                    @warn "ambiguous group assignment"
-                end
-                groupcol[i] = group
-            end
-        end
-    end
-    
-    df = copy(df)
-    df[!, :group] = groupcol
-
-    categories = map(df.isinstance, df.group) do inst, grp
-        if ismissing(grp)
-            :noinst
-        elseif !inst
-            :overlap
-        else
-            :inst
-        end
-    end
-    df[!, :category] = CategoricalArray{Symbol}(categories)
-
-
-    return df
-end
-
 """
     shuffledf(df)
 
@@ -161,7 +150,11 @@ shuffledf(df) = df[shuffle(1:(size(df)[1])), :]
     cleancorpusdata(df, lexicon)
 
 Takes a dataframe with corpus data and a schema lexicon.
-Performs some post-processing on the dataframe, such as resolving implicit notes.
+Performs some post-processing on the dataframe, such as resolving implicit notes:
+- Adds a new column `notes` that contains the resolved polygrams.
+- Removes rows with unresolvable polygrams.
+- Shuffles the rows' order.
+Returns the new dataframe (the original is not modified)
 """
 function cleancorpusdata(df, lexicon)
     notescol = map(df.notesraw, df.schema, df.piece) do notes, schema, piece
@@ -178,6 +171,91 @@ function cleancorpusdata(df, lexicon)
     df = df[(!ismissing).(df.notes), :]
 
     return shuffledf(df)
+end
+
+"""
+    findgroups(df)
+
+Takes a clean dataframe and finds groups of overlapping matches.
+Returns a new dataframe with additional columns.
+
+"Overlaps" are polygrams in the same piece and for the same schema
+that temporally overlap.
+"Groups" are all transitively closed (wrt. overlap) sets of polygrams.
+in the same piece and for the same schema.
+
+Returns a new dataframe with four new columns:
+- `overlap`: for instances an ID,
+  and for non-instances either the ID of an instance it overlaps with
+  or `missing` if it doesn't overlap with any instance.
+- `overcat`: `:inst` for instances,
+  `:overlap` for non-instances overlapping with an instance,
+  and `:noinst` for non-instances that don't overlap with any instance.
+- `group`: a group ID that's shared between all polygrams that transitively overlap.
+- `groupisinstance`: `true` if the group contains an instance, `false` if not. 
+"""
+function findgroups(df)
+    nsteps = length(levels(df.schema)) * length(levels(df.piece))
+
+    # find groups that overlap with true instances
+    progmeter = Progress(nsteps, 0.1, "finding overlaps...")
+    idoffset = 0
+    
+    function assignoverlaps(subdf)
+        instances = subdf.notes[subdf.isinstance]
+
+        overlapids = map(subdf.notes) do x
+            oid = findfirst(inst -> Polygrams.polyssharetime(inst,x), instances)
+            isnothing(oid) ? missing : oid + idoffset
+        end
+        
+        idoffset = idoffset + length(instances)
+        next!(progmeter)
+        (notes=subdf.notes, overlap=overlapids)
+    end
+    
+    odf = by(df, [:schema, :piece], [:notes, :isinstance] => assignoverlaps)
+    df = join(df, odf, on=[:schema, :piece, :notes])
+
+    # assign "categories": instance, overlaps with instance, non-instance (doesn't overlap)
+    categories = map(df.isinstance, df.overlap) do inst, grp
+        if ismissing(grp)
+            :noinst
+        elseif !inst
+            :overlap
+        else
+            :inst
+        end
+    end
+    df[!, :overcat] = CategoricalArray{Symbol}(categories)
+
+    # grouping matches generally
+    progmeter = Progress(nsteps,0.1, "assigning groups...")
+    groupoffset = 0
+
+    function grouppolys(subdf)
+        polys = subdf.notes
+        #println("computing groups for $(subdf.schema[1]) in $(subdf.piece[1]).")
+        groups = Polygrams.transitiverel(Polygrams.polyssharetime, polys)
+        groupdict = Dict()
+        for (i, group) in enumerate(groups)
+            for poly in group
+                groupdict[poly] = i + groupoffset
+            end
+        end
+        groupoffset = groupoffset + length(groups)
+        next!(progmeter) # update the progress 
+        (notes=subdf.notes, group=map(p -> groupdict[p], polys))
+    end
+    
+    gdf = by(df, [:schema, :piece], [:notes, :schema, :piece] => grouppolys)
+    df = join(df, gdf, on=[:schema, :piece, :notes])
+
+    instgroups = Set(df[df.isinstance, :group])
+    groupisinst = map(g -> g in instgroups, df.group)
+    df[!, :groupisinstance] = groupisinst
+    
+    return df
 end
 
 """
@@ -258,11 +336,11 @@ feats = Dict(
 # Plotting features
 # -----------------
 
-function plotcol(df, col; group=:category, kwargs...)
+function plotcol(df, col; group=:overcat, kwargs...)
     density(df[:, col]; group=df[:, group], kwargs...)
 end
 
-function plotfeatures(df, features; group=:category, width=600, height=150, title="feature distribution")
+function plotfeatures(df, features; group=:overcat, width=600, height=150, title="feature distribution")
     cols = collect(keys(feats))
     n = length(cols)
 
@@ -271,7 +349,7 @@ function plotfeatures(df, features; group=:category, width=600, height=150, titl
     plot(ps..., layout=grid(n,1), size=(width, height*n))
 end
 
-function plotfeatures(df, features, schema; group=:category, width=600, height=150)
+function plotfeatures(df, features, schema; group=:overcat, width=600, height=150)
     if schema == :all
         schemas = levels(df.schema)
         l = @layout grid(1, length(schemas))
@@ -325,4 +403,8 @@ function showeval(df)
     println("recall:\t\t", recall)
     println("f1-score:\t", 2 * precision*recall / (precision + recall))
     println("MCC:\t\t", (tp * tn - fp * fn) / sqrt((1.0*tp+fp) * (tp+fn) * (tn+fp) * (tn+fn))) 
+end
+
+function countbypiece(df)
+    by(df, [:piece, :schema], ntrue = :isinstance=>sum, npred = :predbool=>sum)
 end
