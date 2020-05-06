@@ -219,7 +219,7 @@ end
 ### PITCH FEATURES
 
 ### Sum of the pitch distance between notes of the same event (in semitones)
-function pitchDistanceSumInEvent(poly, beatfactor)
+function pitchDistanceSumInEvent(poly)
     # initialize sum and counter
     sum = 0
     npairs = 0
@@ -246,7 +246,7 @@ end
 
 
 ### Sum of the pitch distance between notes of the same voice (in semitones)
-function pitchDistanceSumInVoice(poly, beatfactor)
+function pitchDistanceSumInVoice(poly)
     # initialize sum and counter
     sum = 0
     npairs = 0
