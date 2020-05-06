@@ -274,6 +274,52 @@ function pitchDistanceSumInVoice(poly)
 end
 
 
+function pitchdist(stage1, stage2)
+    n = length(stage1)
+    npairs = 0
+    mindist = Inf
+
+    for j in 1:n
+	if !ismissing(stage1[j]) & !ismissing(stage2[j])
+            offset = Int(tomidi(pitch(stage2[j]) - pitch(stage1[j])))
+	    npairs = npairs+1
+	    dist = 0
+	    for i in 1:n
+		if !ismissing(stage1[i]) & !ismissing(stage2[i])
+			dist = dist + abs(Int(tomidi(pitch(stage2[i]) - pitch(stage1[i]))) - offset)
+		end
+	    end
+            if dist < mindist
+                mindist = dist
+            end
+	end
+    end
+
+    if mindist == Inf
+        mindist = 0
+        npairs = 0
+    end
+    
+    return mindist, npairs
+end
+
+function pitchirregularity(poly)
+    n = length(poly)
+    npairs = 0
+    sum = 0
+
+    for i in 1:n-1
+        for j in i+1:n
+            d, p = pitchdist(poly[i], poly[j])
+            sum = sum + d
+            npairs = npairs + p
+        end
+    end
+
+    reg = sum / npairs
+    
+    return reg
+end
 
 ### Vertical Symetricity of pitch distance from one event to another (in semitones)
 function pitchStageTransitionDistSum(poly)
