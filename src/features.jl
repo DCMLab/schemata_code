@@ -219,7 +219,7 @@ end
 ### PITCH FEATURES
 
 ### Sum of the pitch distance between notes of the same event (in semitones)
-function pitchDistanceSumInEvent(poly)
+function pitchDistanceSumInEvent(poly, beatfactor)
     # initialize sum and counter
     sum = 0
     npairs = 0
@@ -231,8 +231,8 @@ function pitchDistanceSumInEvent(poly)
         # sum over all pairs in that event
 	for i = 1:nv-1
 	    for j = i+1:nv
-                dist = abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))))
-                if !ismissing(dist)
+		if !ismissing(event[i]) & !ismissing(event[j])
+                    dist = abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))))
                     npairs = npairs + 1
 		    sum = sum + dist
                 end
@@ -246,7 +246,7 @@ end
 
 
 ### Sum of the pitch distance between notes of the same voice (in semitones)
-function pitchDistanceSumInVoice(poly)
+function pitchDistanceSumInVoice(poly, beatfactor)
     # initialize sum and counter
     sum = 0
     npairs = 0
@@ -261,8 +261,8 @@ function pitchDistanceSumInVoice(poly)
         #sum over all pairs in each voice
 	for j = 1:nbevent-1
 	    for k = j+1:nbevent
-                dist = abs(Int(tomidi(pitch(poly[j][i]) - pitch(poly[k][i]))))
-                if !ismissing(dist)
+		if !ismissing(poly[j][i]) & !ismissing(poly[k][i])
+                    dist = abs(Int(tomidi(pitch(poly[j][i]) - pitch(poly[k][i]))))
                     npairs = npairs + 1
 		    sum = sum + dist
                 end
