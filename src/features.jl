@@ -1,5 +1,7 @@
-### dependencies and export
+using StatsBase
+using Distances
 
+### dependencies and export
 
 export getduration, voicedist, stageskip
 export rhythmDistanceSumInEvent, rhythmDistanceSumInVoice
@@ -339,4 +341,76 @@ function pitchVoiceTransitionDistSum(poly)
 	distsum = (1/nbvoice)*distsum
 
 	return(distsum)
+end
+
+### pitchclass histogram features
+
+function pchist(notes, weighted=false; normalize=true)
+    pitches = pc.(pitch.(notes))
+    counts = Dict{Pitch{SpelledIC},Float64}()
+    
+    if weighted
+        ws = weights(convert.(Float64, duration.(notes)))
+        norm = sum(ws)
+    else
+        norm = length(notes)
+        ws = uweights(Float64, norm)
+    end
+    
+    addcounts!(counts, pitches, ws)
+
+    if normalize
+        map!(x -> x / norm, values(counts)) # this should update the values in place
+    end
+
+    counts
+end
+
+function contexthists(df, weighted=true)
+    function contexthist(subdf)
+        poly = subdf.notes[1]
+        histpc = pchist(subdf.context[1], weighted)
+
+        refnote = poly[1][findfirst(!ismissing, poly[1])]
+        ref = pc(pitch(refnote))
+        histic = [(p-ref, v) for (p,v) in histpc]
+        return (ic=getindex.(histic,1), freq=getindex.(histic,2))
+    end
+    
+    by(df, [:notes, :schema], [:context, :notes] => contexthist)
+end
+
+#mergehists(h1, h2) = merge(+, h1, h2)
+
+function schemahists(polyhistdf)
+    by(polyhistdf, [:schema, :ic], freq=:freq=>mean)
+end
+
+schemaprofiles(shdf) = shdf[shdf.isinstance, Not(:isinstance)]
+
+function profiledist(profile, observed, dist=Euclidean())
+    joint = join(profile, observed, on=:ic, makeunique=true, kind=:outer)
+    
+    evaluate(dist, coalesce.(joint.freq, 0), coalesce.(joint.freq_1, 0))
+end
+
+function contextfeature(ctxdf, profiledf, dist=Euclidean())
+    profs = Dict(schema => profiledf[profiledf.schema .== schema, :]
+                 for schema in levels(profiledf.schema))
+    
+    function evaldist(cols)
+        profile = profs[cols.schema[1]]
+        profiledist(profile, DataFrame(ic=cols.ic, freq=cols.freq), dist)
+    end
+
+    by(ctxdf, :notes, profiledist=[:ic, :freq, :schema]=>evaldist)
+end
+
+function plotichists(hists; groups=1:length(hists), kwargs...)
+    fifths = [ic.fifths for h in hists for ic in keys(h)]
+    xs = sic.(minimum(fifths):maximum(fifths))
+    ys = hcat([[get(h, ic, 0) for ic in xs] for h in hists]...)
+    group=repeat(groups, inner=length(xs))
+
+    groupedbar(repeat(string.(xs), outer=length(hists)), ys; group=group, kwargs...)
 end

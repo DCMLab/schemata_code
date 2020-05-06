@@ -17,11 +17,13 @@ include("Polygrams.jl")
 
 # # Loading Procedure
 # Use the following steps to load and preprocess the data
-# 1. Load the lexicon: Polygrams.loadlexicon(path)
-# 2. Load the raw data: loadcorpusdata(corpusdir, schemaids) -> df
-# 3. Clean the data (see docstring below for details): cleancorpusdata(df, lexicon) -> df'
-# 4. Find groups: findgroups(df') -> df''
-# 5. (optional) Resample/balance the data: upsample(df'') -> dfup / downsample(df'') -> dfdown
+# 1. Load the lexicon:  lex = Polygrams.loadlexicon(path)
+# 2. Load the raw data: df, notelists = loadcorpusdata(corpusdir, schemaids)
+# 3. Clean the data:    df = cleancorpusdata(df, lex)
+# 4. Find groups:       df = findgroups(df)
+# 5. (optional) Resample/balance the data:
+#                       dfu = upsample(df)
+#                       dfd = downsample(df)
 # # Dataframe Format
 # After loading, cleaning, and assigning groups,
 # the dataframe has the following layout:
@@ -37,6 +39,10 @@ include("Polygrams.jl")
 # - overcat (Symbol): :inst, :noinst, or :overlap (if non-instance but overlaps with instance)
 # - group (Int): ID of transitively closed overlap group for same piece/schema
 # - groupisinstance (Bool): does the "group" contain an instance?
+# `notelists` is a dictionary from piece IDs to the corresponding note lists.
+
+# Loading raw data
+# ----------------
 
 """
     loadpiecedata(corpusdir, pieceid, schemaids)
@@ -94,9 +100,11 @@ function loadpiecedata(corpusdir, pieceid, schemaids)
     beatfactors = fill(beatfactor, total)
     piececol = CategoricalArray{String}(undef, total)
     fill!(piececol, pieceid)
+
+    polydf = DataFrame(notesraw=matches, isinstance=isinstance, beatfactor=beatfactors,
+                       piece=piececol, schema=schemacol)
     
-    return DataFrame(notesraw=matches, isinstance=isinstance, beatfactor=beatfactors,
-                     piece=piececol, schema=schemacol)
+    return polydf, notes
 end
 
 """
@@ -117,20 +125,26 @@ function loadcorpusdata(corpusdir, schemaids)
     usedir(joinpath(corpusdir, "musicxml"))
     pieces = allpieces()
     df = nothing
+    notelists = Dict()
     
     @showprogress 1 "loading pieces..." for piece in pieces
         #@info "loading piece $(piece)"
-        piecedf = loadpiecedata(corpusdir, piece, schemaids)
+        polydf, notes = loadpiecedata(corpusdir, piece, schemaids)
 
         if df == nothing
-            df = piecedf
+            df = polydf
         else
-            append!(df, piecedf)
+            append!(df, polydf)
         end
+
+        notelists[piece] = notes
     end
 
-    return df
+    return df, notelists
 end
+
+# Data cleaning
+# -------------
 
 """
     hasmissings(instance)
@@ -258,6 +272,9 @@ function findgroups(df)
     return df
 end
 
+# Resampling
+# ----------
+
 """
     upsample(df)
 
@@ -294,8 +311,38 @@ function downsample(df, ratio=1)
     return shuffledf(newdf)
 end
 
+# Fetching contexts
+# -----------------
+
+"""
+    findcontext(piece, notes)
+
+Finds the "context" of a set of notes in a piece.
+Returns all notes in `piece` that overlap with `notes`,
+except `notes` themselves.
+"""
+function findcontext(piece, notes)
+    notes = filter(!ismissing, notes)
+    on = minimum(onset.(notes))
+    off = maximum(offset.(notes))
+    ids = id.(notes)
+    return [note for note in piece if !((onset(note) >= off) | (offset(note) <= on) | (id(note) in ids))]
+end
+
+function findfullcontexts(df, notelists)
+    df = copy(df)
+    contexts = @showprogress 0.1 "finding contexts..." map(df.piece, df.notes) do piece, poly
+        findcontext(notelists[piece], [n for stage in poly for n in stage])
+    end
+    df[!, :context] = contexts
+    df
+end
+
 # Evaluating the features
 # =======================
+
+# Independent features
+# --------------------
 
 DigitalMusicology.duration(::Missing) = 0
 DigitalMusicology.onset(::Missing) = missing
@@ -305,8 +352,23 @@ DigitalMusicology.tointerval(::Missing) = missing
 
 include("features.jl")
 
+feats = Dict(
+    :dur => getDuration,
+    :vdist => (notes, _) -> Polygrams.voicedist(notes),
+    :sskip => stageSkip,
+    :rdsums => rhythmDistanceSumInEvent,
+    :rdsumv => rhythmDistanceSumInVoice,
+    :rhytreg => rhythmicirregularity,
+    :rstagetrans => rhythmStageTransitionDistSum,
+    :rvoicetrans => rhythmVoiceTransitionDistSum,
+    #:pdsums => (notes, _) -> pitchDistanceSumInEvent(notes),
+    #:pdsumv => (notes, _) -> pitchDistanceSumInVoice(notes),
+    #:pstagetrans => (notes, _) -> pitchStageTransitionDistSum(notes),
+    #:pvoicetrans => (notes, _) -> pitchVoiceTransitionDistSum(notes),
+)
+
 """
-    runfeatures!(df, features)
+    runfeatures(df, features)
 
 Takes a dataframe of schema instances and a dictionary of features.
 The feature dictionary contains feature functions
@@ -316,22 +378,50 @@ The keys of the dictionary are keywords indicating the name of the feature
 
 The features are evalueated on the `notes` and `barlen` columns of the dataframe
 and added to it with the dictionary keys indicating the new column names.
+Returns the extended dataframe.
 """
-function runfeatures!(df, features)
+function runfeatures(df, features)
+    df = copy(df)
     for (name, f) in features
         @info "evaluating feature $name" 
         df[!, name] = map(f, df.notes, df.beatfactor)
     end
+    return df
 end
 
-feats = Dict(
-    :dur => getDuration,
-    :vdist => (notes, _) -> Polygrams.voicedist(notes),
-    :sskip => stageSkip,
-    :rdsums => rhythmDistanceSumInEvent,
-    :rdsumv => rhythmDistanceSumInVoice,
-    :rhytreg => rhythmicirregularity,
-)
+# Dependent features (depend on training data)
+# --------------------------------------------
+
+"""
+    trainfeatures(traindf)
+
+Trains dependent features on a training set.
+Returns a named tuple of trained info.
+"""
+function trainfeatures(traindf)
+    ctxhists = contexthists(traindf[traindf.isinstance, [:notes, :context, :schema]])
+
+    ctxprofiles = schemahists(ctxhists)
+
+    return (ctxprofiles=ctxprofiles,)
+end
+
+"""
+    rundepfeatures(df, info)
+
+Runs features on `df` that depend on trained `info`,
+as returned by `trainfeatures`.
+Returns a new dataframe with extra columns.
+"""
+function rundepfeatures(df, info)
+    ctxhists = contexthists(df)
+    ctxfeat = contextfeature(ctxhists, info.ctxprofiles)
+    df = join(df, ctxfeat[!, [:notes, :profiledist]], on=:notes)
+
+    return df
+end
+
+featcols = [:profiledist, keys(feats)...]
 
 # Plotting features
 # -----------------
@@ -340,8 +430,7 @@ function plotcol(df, col; group=:overcat, kwargs...)
     density(df[:, col]; group=df[:, group], kwargs...)
 end
 
-function plotfeatures(df, features; group=:overcat, width=600, height=150, title="feature distribution")
-    cols = collect(keys(feats))
+function plotfeatures(df, cols; group=:overcat, width=600, height=150, title="feature distribution")
     n = length(cols)
 
     ps = [plotcol(df, c; group=group, title="$title $c", legend=(c==:vdist ? :best : :none)) for c in cols]
@@ -365,14 +454,17 @@ end
 # Running the model
 # =================
 
-function fitmodel(df, features)
-    form = term(:isinstance) ~ foldl(+, term.(keys(features)))
+function fitmodel(df, cols)
+    form = term(:isinstance) ~ foldl(+, term.(cols))
+    @show form
     glm(form, df, Bernoulli(), LogitLink())
 end
 
-function addpredictions!(df, model)
-    df.pred = predict(model, df)
-    df.predbool = df.pred .> 0.5
+function addpredictions(df, model)
+    df = copy(df)
+    df[!, :pred] = predict(model, df)
+    df[!, :predbool] = df.pred .> 0.5
+    df
 end
 
 function showeval(df)

@@ -30,27 +30,29 @@ ismirschemas = [
     "solfami.2"
 ]
 
-df = loadcorpusdata(corpusdir, ismirschemas)
+df, notelists = loadcorpusdata(corpusdir, ismirschemas);
 
 df = cleancorpusdata(df, lex)
 df = findgroups(df)
+df = findfullcontexts(df, notelists)
+
+df = runfeatures(df, feats)
+
+info = trainfeatures(df)
+df = rundepfeatures(df, info)
+
+plotfeatures(df, featcols)
 
 dfu = upsample(df)
 dfd = downsample(df)
 
-runfeatures!(df, feats)
-runfeatures!(dfu, feats)
-runfeatures!(dfd, feats)
+model = fitmodel(df, featcols)
+modelu = fitmodel(dfu, featcols)
+modeld = fitmodel(dfd, featcols)
 
-plotfeatures(df, feats)
-
-model = fitmodel(df, feats)
-modelu = fitmodel(dfu, feats)
-modeld = fitmodel(dfd, feats)
-
-addpredictions!(df, model);
-addpredictions!(dfu, modelu);
-addpredictions!(dfd, modeld);
+df = addpredictions(df, model);
+df = addpredictions(dfu, modelu);
+df = addpredictions(dfd, modeld);
 
 showeval(df)
 showeval(dfu)
