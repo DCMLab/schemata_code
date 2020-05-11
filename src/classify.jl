@@ -7,6 +7,8 @@ using GLM
 using ProgressMeter
 using Plots; gr()
 using StatsPlots
+using LIBSVM
+using Flux
 
 #include("common.jl")
 #include("io.jl")
@@ -115,7 +117,6 @@ Returns a data frame with three columns:
 - `match`: The matched notes as a nested array of `TimedNote`s
 - `instance`: A boolean indicating if the match is a positive (`true`) or negative (`false`) example
 - `barlen`: The duration of one bar according to the time signature of the piece the match is taken from.
-
 
 `corpusdir` points to the directory that contains `musicxml/`,
 `annotations/`, and `groups/`.
@@ -358,14 +359,10 @@ feats = Dict(
     :sskip => stageSkip,
     :rdsums => rhythmDistanceSumInEvent,
     :rdsumv => rhythmDistanceSumInVoice,
-    :rhytreg => rhythmicirregularity,
-    #:rstagetrans => rhythmStageTransitionDistSum,
-    #:rvoicetrans => rhythmVoiceTransitionDistSum,
+    :rreg => rhythmicirregularity,
     :pdsums => (notes, _) -> pitchDistanceSumInEvent(notes),
     :pdsumv => (notes, _) -> pitchDistanceSumInVoice(notes),
     :preg => (notes, _) -> pitchirregularity(notes),
-    #:pstagetrans => (notes, _) -> pitchStageTransitionDistSum(notes),
-    #:pvoicetrans => (notes, _) -> pitchVoiceTransitionDistSum(notes),
 )
 
 """
@@ -455,47 +452,204 @@ end
 # Running the model
 # =================
 
+# Logistic Regression
+# -------------------
+
 function fitmodel(df, cols)
-    form = term(:isinstance) ~ foldl(+, term.(cols))
+    form = term(:isinstance) ~ term(1) + foldl(+, term.(cols))
     @show form
     glm(form, df, Bernoulli(), LogitLink())
 end
 
-function addpredictions(df, model)
+function addpredictions(df, model;
+                        tau=count(df.isinstance)/length(df.isinstance),
+                        corrinter=log((1-tau)/tau))
     df = copy(df)
-    df[!, :pred] = predict(model, df)
+
+    @show corrinter
+
+    X = modelmatrix(model.mf.f, df)
+    coeffs = [c for c in coef(model)]
+    coeffs[1] = coeffs[1] - corrinter
+    eta = X * coeffs
+    mu = [GLM.linkinv(GLM.Link(model.model), x) for x in eta]
+    
+    # df[!, :pred] = predict(model, df; offset=fill(corrinter, length(df.isinstance)))
+    df[!, :pred] = mu
     df[!, :predbool] = df.pred .> 0.5
     df
 end
 
-function showeval(df)
-    gttrue = df.isinstance .== true
-    gtfalse = df.isinstance .== false
-    predtrue = df.predbool .== true
-    predfalse = df.predbool .== false
+# SVM
+# ---
 
-    tp = count(gttrue .& predtrue)
-    tn = count(gtfalse .& predfalse)
-    fp = count(gtfalse .& predtrue)
-    fn = count(gttrue .& predfalse)
+function fitsvm(df, cols; kernel=Kernel.RadialBasis)
+    y = df.isinstance
+    X = convert(Array, df[!, cols])'
+    svmtrain(X, y, kernel=kernel)
+end
+
+function predictsvm(df, model, cols)
+    X = convert(Array, df[!, cols])'
+    pred, val = svmpredict(model, X)
+    df = copy(df)
+    #df[!, :svm] = val
+    df[!, :svmbool] = pred
+    df
+end
+
+# ANN
+# ---
+
+function fitann(df, cols;
+                batchsize=64, opt=Descent(0.0001),
+                epochs=2000, dftest=nothing,
+                model=Dense(length(cols), 1, σ))
+    ytrain = df.isinstance
+    Xtrain = convert(Array, df[!, cols])'
+    ytest = dftest.isinstance
+    Xtest = convert(Array, dftest[!, cols])'
+    data = Flux.Data.DataLoader(Xtrain, ytrain, batchsize=batchsize)
+    #nfeat = length(cols)
+    
+    #model = Chain(Dense(nfeat, 2*nfeat, σ), Dense(2*nfeat, 1, σ))
+    lrloss(ŷ, y) = (-sum(log.(ŷ[y])) - sum(log.(1 .- ŷ[.!y]))) / length(y)
+    celoss(ŷ, y) = Flux.crossentropy(ŷ, y) + Flux.crossentropy(1 .- ŷ, .!y)
+    bcloss(ŷ, y) = mean(Flux.logitbinarycrossentropy.(ŷ, y))
+    #loss(x, y) = -sum(log.(model(x[:,y]))) - sum(log.(1 .- model(x[:,.!y])))
+    loss(x, y) = lrloss(model(x), y)
+
+    #@show loss(Xtrain,ytrain)
+
+    losses = Float64[]
+    testlosses = Float64[]
+    i = 0
+    #plotloss = Flux.throttle(() -> display(plot(losses)), 0.5)
+    function printloss()
+        println("update $i")
+        i = i+1
+        push!(losses, loss(Xtrain, ytrain))
+        if dftest != nothing
+            push!(testlosses, loss(Xtest, ytest))
+        end
+        #plotloss()
+    end
+
+    Flux.@epochs epochs Flux.train!(loss, params(model), data, opt, cb=printloss)
+
+    model, losses, testlosses
+end
+
+function predann(df, model, cols, outcol=:nn)
+    X = convert(Array, df[!, cols])'
+    df = copy(df)
+    df[!, outcol] = vec(model(X))
+    df[!, Symbol(string(outcol, "bool"))] = df.nnlr .> 0.5
+    df
+end
+
+# Evaluation
+# ==========
+
+# Basic Metrics
+# -------------
+
+truepos(gt, pred) = count(gt .& pred)
+trueneg(gt, pred) = count(.! (gt .| pred))
+
+falsepos(gt, pred) = count((.!gt) .& pred)
+falseneg(gt, pred) = count(gt .& (.! pred))
+
+accuracy(gt, pred) = (truepos(gt, pred) + trueneg(gt, pred)) / length(gt)
+
+function precision(gt, pred)
+    tp = truepos(gt, pred)
+    fp = falsepos(gt, pred)
+    tp / (tp + fp)
+end
+
+function recall(gt, pred)
+    tp = truepos(gt, pred)
+    fn = falseneg(gt, pred)
+    tp / (tp + fn)
+end
+
+function fscore(gt, pred)
+    prec = precision(gt, pred)
+    rec = recall(gt, pred)
+    2 * prec * rec / (prec+rec)
+end
+
+function mcc(gt, pred)
+    tp = truepos(gt, pred)
+    tn = trueneg(gt, pred)
+    fp = falsepos(gt, pred)
+    fn = falseneg(gt, pred)
+    (tp * tn - fp * fn) / sqrt((1.0*tp+fp) * (tp+fn) * (tn+fp) * (tn+fn))
+end
+
+function showeval(df, filteroverlap=false; gtcol=:isinstance, predcol=:predbool)
+    if filteroverlap
+        df = df[df.overcat .!= :overlap, :]
+    end
+    gt = df[!, gtcol]
+    pred = df[!, predcol]
     
     println("confusion matrix:")
-    println("true positives:  ", tp)
-    println("true negatives:  ", tn)
-    println("false positives: ", fp)
-    println("false negatives: ", fn)
+    println("true positives:  ", truepos(gt, pred))
+    println("true negatives:  ", trueneg(gt, pred))
+    println("false positives: ", falsepos(gt, pred))
+    println("false negatives: ", falseneg(gt, pred))
 
     println()
 
-    println("accuracy:\t", (tp + tn) / length(df.isinstance))
+    println("accuracy:\t", accuracy(gt, pred))
 
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
+    println("precision:\t", precision(gt, pred))
+    println("recall:\t\t", recall(gt, pred))
+    println("f1-score:\t", fscore(gt, pred))
+    println("MCC:\t\t", mcc(gt, pred)) 
+end
 
-    println("precision:\t", precision)
-    println("recall:\t\t", recall)
-    println("f1-score:\t", 2 * precision*recall / (precision + recall))
-    println("MCC:\t\t", (tp * tn - fp * fn) / sqrt((1.0*tp+fp) * (tp+fn) * (tn+fp) * (tn+fn))) 
+function evaltable(df; gtcol=:isinstance, predcols=[:predbool, :svmbool, :nnlrbool, :nnbool])
+    gt = df[!, gtcol]
+    preds = [df[!, pc] for pc in predcols]
+
+    tps = [truepos(gt, pred) for pred in preds]
+    tns = [trueneg(gt, pred) for pred in preds]
+    fps = [falsepos(gt, pred) for pred in preds]
+    fns = [falseneg(gt, pred) for pred in preds]
+    accs = [accuracy(gt, pred) for pred in preds]
+    precs = [precision(gt, pred) for pred in preds]
+    recs = [recall(gt, pred) for pred in preds]
+    fscs = [fscore(gt, pred) for pred in preds]
+    mccs = [mcc(gt, pred) for pred in preds]
+
+    DataFrame(model=predcols, tp=tps, tn=tns, fp=fps, fn=fns,
+              acc=accs, prec=precs, fscore=fscs, mcc=mccs)
+end
+
+# Data Splitting
+# --------------
+
+function splitdf(df, split=0.8; group=:isinstance)
+    dftrain = DataFrame()
+    dftest = DataFrame()
+    for (key, subdf) in pairs(groupby(df, group))
+        s = Int(round(split * size(subdf)[1]))
+        dftrain = vcat(dftrain, subdf[1:s, :])
+        dftest  = vcat(dftest,  subdf[s+1:end, :])
+    end
+    shuffledf(dftrain), shuffledf(dftest)
+end
+
+# Grouping
+# --------
+
+function aggregategroups(f, df, cols, thres=0.5)
+    dfgrp = by(df, [:group, :groupisinstance], grppred=cols=>f)
+    dfgrp[!,:grppredbool] = dfgrp.grppred .> thres
+    dfgrp
 end
 
 function countbypiece(df)
