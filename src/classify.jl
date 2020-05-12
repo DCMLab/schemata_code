@@ -655,3 +655,52 @@ end
 function countbypiece(df)
     by(df, [:piece, :schema], ntrue = :isinstance=>sum, npred = :predbool=>sum)
 end
+
+
+# Bar split
+# ---------
+
+# Return a dictionnary with for each bar (key), the list of all note id in that bar (content)
+function getbarcontent(noteslist, timesigs)
+    bardict = Dict()
+    
+    nbbar = 0
+    for note in noteslist
+    	bar = barbeatsubb(onset(note), timesigs)[1]
+	if haskey(bardict, bar)
+	    push!(bardict[bar], id(note))
+	else
+	    bardict[bar] = [id(note)]
+    	nbbar = nbbar + 1
+	end
+    end
+
+    return nbbar-1, bardict
+end
+
+function barmatch(noteslist, timesigs, polylist)
+	nbbar, barcontent = getbarcontent(noteslist, timesigs)
+	barmatch = []
+
+	for bar in 0:nbbar
+		found = false
+		i = 1
+
+		while found == false && i <= length(polylist)
+			for stage in polylist[i]
+				for note in stage
+					if !ismissing(note)
+						if id(note) in barcontent[bar]
+							found = true
+						end
+					end
+				end
+			end
+			i = i + 1
+		end
+		push!(barmatch, found)
+	end
+	
+	return barmatch
+end
+
