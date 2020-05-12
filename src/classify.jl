@@ -106,7 +106,7 @@ function loadpiecedata(corpusdir, pieceid, schemaids)
     polydf = DataFrame(notesraw=matches, isinstance=isinstance, beatfactor=beatfactors,
                        piece=piececol, schema=schemacol)
     
-    return polydf, notes
+    return polydf, notes, timesigs[1]
 end
 
 """
@@ -127,10 +127,12 @@ function loadcorpusdata(corpusdir, schemaids)
     pieces = allpieces()
     df = nothing
     notelists = Dict()
-    
+    timesigdict = Dict()
+
+
     @showprogress 1 "loading pieces..." for piece in pieces
         #@info "loading piece $(piece)"
-        polydf, notes = loadpiecedata(corpusdir, piece, schemaids)
+        polydf, notes, ts = loadpiecedata(corpusdir, piece, schemaids)
 
         if df == nothing
             df = polydf
@@ -139,9 +141,10 @@ function loadcorpusdata(corpusdir, schemaids)
         end
 
         notelists[piece] = notes
+	timesigdict[piece] = ts
     end
 
-    return df, notelists
+    return df, notelists, timesigdict
 end
 
 # Data cleaning
@@ -689,7 +692,7 @@ function barmatch(noteslist, timesigs, polylist)
 		while found == false && i <= length(polylist)
 			for stage in polylist[i]
 				for note in stage
-					if !ismissing(note)
+					if !ismissing(note) && haskey(barcontent, bar)
 						if id(note) in barcontent[bar]
 							found = true
 						end
@@ -702,5 +705,63 @@ function barmatch(noteslist, timesigs, polylist)
 	end
 	
 	return barmatch
+end
+
+function bareval(df, corpus, noteslist, ts)
+	tp = 0
+	tn = 0
+	fp = 0
+	fn = 0
+
+	for piece in corpus
+		notes = notelists[piece]
+		timesig = ts[piece]
+		
+		dfpiece = df[!, :piece]
+		dfpoly = df[!, :notes]
+		dfgt = df[!, :isinstance]
+		dfclas = df[!, :predbool]
+
+		gtpoly = []
+		matcherpoly = []
+		for i in 1:length(dfpoly)
+			if dfpiece[i] == piece
+				if dfgt[i] == 1
+					push!(gtpoly, dfpoly[i])
+				end
+				if dfclas[i] == 1
+					push!(matcherpoly, dfpoly[i])
+				end
+			end
+		end
+
+		bm_gt = barmatch(notes, timesigs, gtpoly)
+		bm_matcher = barmatch(notes, timesigs, matcherpoly)
+
+		for i in 1:length(bm_gt)
+			if bm_gt[i] == true && bm_matcher[i] == true
+				tp = tp+1
+			elseif bm_gt[i] == true && bm_matcher[i] == false
+				fn = fn+1
+			elseif bm_gt[i] == false && bm_matcher[i] == false
+				tn = tn+1
+			elseif bm_gt[i] == false && bm_matcher[i] == true
+				fp = fp+1
+			end
+		end
+	end
+
+	prec = tp/(tp+fp)
+	rec = tp/(tp+fn)
+	fs = 2 * prec * rec / (prec + rec)
+
+	println("true positive: ", tp)
+	println("true negative: ", tn)
+	println("false positive: ", fp)
+	println("false negative: ", fn)
+
+	println("precision = ", prec)
+	println("recall = ", rec)
+	println("fscore = ", fs)
 end
 
