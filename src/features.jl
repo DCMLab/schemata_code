@@ -232,8 +232,9 @@ function pitchDistanceSumInEvent(poly)
 	for i = 1:nv-1
 	    for j = i+1:nv
 		if !ismissing(event[i]) & !ismissing(event[j])
-                    dist = abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))))
-                    npairs = npairs + 1
+                    #dist = abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))))
+                    dist = abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))) ÷12)
+		    npairs = npairs + 1
 		    sum = sum + dist
                 end
 	    end
@@ -281,12 +282,14 @@ function pitchdist(stage1, stage2)
 
     for j in 1:n
 	if !ismissing(stage1[j]) & !ismissing(stage2[j])
-            offset = Int(tomidi(pitch(stage2[j]) - pitch(stage1[j])))
+            #offset = Int(tomidi(pitch(stage2[j]) - pitch(stage1[j])))
+	    offset = Int(tomidi(pitch(stage2[j]) - pitch(stage1[j])))÷12
 	    npairs = npairs+1
 	    dist = 0
 	    for i in 1:n
 		if !ismissing(stage1[i]) & !ismissing(stage2[i])
-			dist = dist + abs(Int(tomidi(pitch(stage2[i]) - pitch(stage1[i]))) - offset)
+			#dist = dist + abs(Int(tomidi(pitch(stage2[i]) - pitch(stage1[i]))) - offset)
+			dist = dist + abs(Int(tomidi(pitch(stage2[i]) - pitch(stage1[i]))) ÷12 - offset)
 		end
 	    end
             if dist < mindist
@@ -322,72 +325,72 @@ function pitchirregularity(poly)
 end
 
 ### Vertical Symetricity of pitch distance from one event to another (in semitones)
-function pitchStageTransitionDistSum(poly)
-	dists = []
-	for event in poly
-		eventsum = 0
-		N = length(event)
-	
-		for i = 1:N-1
-			for j = i+1:N
-				eventsum = eventsum + abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))))
-			end
-		end
-		push!(dists, eventsum)
-	end
-	
-	M = length(dists)
-	distsum = 0
-	for i = 1:M-1
-		for j = i+1:M
-			distsum = distsum + abs(dists[i]-dists[j])
-		end
-	end
-	distsum = (1/M)*distsum		#Normalisation per event
-
-	return distsum
-end
+#function pitchStageTransitionDistSum(poly)
+#	dists = []
+#	for event in poly
+#		eventsum = 0
+#		N = length(event)
+#	
+#		for i = 1:N-1
+#			for j = i+1:N
+#				eventsum = eventsum + abs(Int(tomidi(pitch(event[i]) - pitch(event[j]))))
+#			end
+#		end
+#		push!(dists, eventsum)
+#	end
+#	
+#	M = length(dists)
+#	distsum = 0
+#	for i = 1:M-1
+#		for j = i+1:M
+#			distsum = distsum + abs(dists[i]-dists[j])
+#		end
+#	end
+#	distsum = (1/M)*distsum		#Normalisation per event
+#
+#	return distsum
+#end
 
 
 ### Horizontal Symetricity of pitch distance from one voice to another (in semitones)
-function pitchVoiceTransitionDistSum(poly)
-	nbevent = size(poly)[1]
-	nbvoice = size(poly[1])[1]
-
-	distpitches = []
-	for i = 1:nbvoice
-		voicepitches = []
-		for event in poly
-			push!(voicepitches, pitch(event[i]))
-		end
-
-		dists = []
-		for j = 1:nbevent-1
-			for k = j+1:nbevent
-				push!(dists, abs(Int(tomidi(voicepitches[j]-voicepitches[k]))))
-			end
-		end
-		push!(distpitches, dists)
-	end
-
-	distsum = 0
-	K = length(distpitches[1])
-
-	for i = 1:K
-		temp = 0
-		for j = 1:nbvoice-1
-			for k = j+1:nbvoice
-				temp = temp + abs(distpitches[j][i] - distpitches[k][i])
-			end
-		end
-		temp = (1/K)*temp
-		distsum = distsum + temp
-	end
-
-	distsum = (1/nbvoice)*distsum
-
-	return(distsum)
-end
+#function pitchVoiceTransitionDistSum(poly)
+#	nbevent = size(poly)[1]
+#	nbvoice = size(poly[1])[1]
+#
+#	distpitches = []
+#	for i = 1:nbvoice
+#		voicepitches = []
+#		for event in poly
+#			push!(voicepitches, pitch(event[i]))
+#		end
+#
+#		dists = []
+#		for j = 1:nbevent-1
+#			for k = j+1:nbevent
+#				push!(dists, abs(Int(tomidi(voicepitches[j]-voicepitches[k]))))
+#			end
+#		end
+#		push!(distpitches, dists)
+#	end
+#
+#	distsum = 0
+#	K = length(distpitches[1])
+#
+#	for i = 1:K
+#		temp = 0
+#		for j = 1:nbvoice-1
+#			for k = j+1:nbvoice
+#				temp = temp + abs(distpitches[j][i] - distpitches[k][i])
+#			end
+#		end
+#		temp = (1/K)*temp
+#		distsum = distsum + temp
+#	end
+#
+#	distsum = (1/nbvoice)*distsum
+#
+#	return(distsum)
+#end
 
 ### pitchclass histogram features
 
