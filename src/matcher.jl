@@ -169,7 +169,7 @@ this is defined to be 0.
 For every other interval, the difference in octaves between the smallest possible interval
 and the given interval is returned.
 E.g. the `octdiv` of a fifth up is 1
-since it is the same as a fourth down (0, shortest way in pitch-class space) + 1 octave up. 
+since it is the same as a fourth down (0, shortest way in pitch-class space) + 1 octave up.
 """
 function octdiv end
 
