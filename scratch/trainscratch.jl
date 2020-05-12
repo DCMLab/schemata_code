@@ -130,3 +130,8 @@ for thres in 0:0.01:1
     push!(fss, fs)
 end
 plot(0:0.01:1, fss)
+
+# finding interesting instances
+
+fpsd = findfps(dfdtest)
+fpsd = confidentfps(dfutest, gtcol=:groupisinstance, thres=0.9)

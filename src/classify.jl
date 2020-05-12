@@ -765,3 +765,28 @@ function bareval(df, corpus, noteslist, ts)
 	println("fscore = ", fs)
 end
 
+# Finding misclassified instances
+
+"""
+    polystring(poly)
+
+Returns a string representation of a polygram
+that can be copied into the annotation tool.
+"""
+function polystring(poly)
+    join(map(stage -> join(id.(stage), ","), poly), ";")
+end
+
+function findfps(df; gtcol=:isinstance, predcol=:predbool)
+    fps = (.! df[!, gtcol]) .& df[!, predcol]
+    dfout = df[fps, [:piece, :schema, :notes]]
+    dfout[!, :notestring] = polystring.(dfout.notes)
+    dfout[!, [:piece, :schema, :notestring]]
+end
+
+function confidentfps(df; gtcol=:isinstance, probcol=:pred, thres=0.5)
+    fps = (.! df[!, gtcol]) .& (df[!, probcol] .> thres)
+    dfout = df[fps, [:piece, :schema, :notes, probcol]]
+    dfout[!, :notestring] = polystring.(dfout.notes)
+    sort(dfout[!, [:piece, :schema, :notestring, probcol]], probcol, rev=true)
+end
