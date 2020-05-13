@@ -54,7 +54,6 @@ function rhythmDistanceSumInEvent(poly, beatfactor)
     return beatfactor * (1/npairs) * sum #Normalisation per event
 end
 
-
 ### Sum of the rythmic distance between notes of the same voice (by onset)
 function rhythmDistanceSumInVoice(poly, beatfactor)
     # initialize sum and counter
@@ -81,6 +80,25 @@ function rhythmDistanceSumInVoice(poly, beatfactor)
     end
     
     return beatfactor * (1/npairs) * sum
+end
+
+"""
+    onsetsinstage(poly, context)
+
+Counts the average number of distinct note onsets within each stage.
+"""
+function onsetsinstage(poly, context)
+    onsets = onset.(context)
+
+    n = 0
+    for stage in poly
+        stageons = [onset(note) for note in stage if !ismissing(note)]
+        lower = minimum(stageons)
+        upper = maximum(stageons)
+        n = n + length(setdiff([on > lower && on < upper for on in onsets], stageons))
+    end
+
+    n / length(poly)
 end
 
 """
@@ -393,7 +411,14 @@ end
 #end
 
 ### pitchclass histogram features
+### =============================
 
+"""
+    pchist(notes, weighted=false; normalize=true)
+
+Takes a list of `notes` and returns their pitch-class histogram
+as a dictionary from pitch classes to counts/frequencies.
+"""
 function pchist(notes, weighted=false; normalize=true)
     pitches = pc.(pitch.(notes))
     counts = Dict{Pitch{SpelledIC},Float64}()
@@ -409,12 +434,18 @@ function pchist(notes, weighted=false; normalize=true)
     addcounts!(counts, pitches, ws)
 
     if normalize
-        map!(x -> x / norm, values(counts)) # this should update the values in place
+        map!(v -> norm == 0 ? 0 : v / norm, values(counts))
     end
-
     counts
 end
 
+"""
+    contexthists(df, weighted=true)
+
+Takes a dataframe of matches and returns a new dataframe
+with columns `schema`, `notes`, `ic`, and `freq`,
+indicating the context histogram of each match in long format.
+"""
 function contexthists(df, weighted=true)
     function contexthist(subdf)
         poly = subdf.notes[1]
@@ -429,30 +460,126 @@ function contexthists(df, weighted=true)
     by(df, [:notes, :schema], [:context, :notes] => contexthist)
 end
 
+"""
+    stagehists(df, weighted=true)
+
+See `contexthists`.
+Does the same but by stage.
+Result has an additional column `stage`.
+"""
+function stagehists(df, weighted=true)
+    function stagehist(subdf)
+        poly = subdf.notes[1]
+        polyctx = subdf.context[1]
+        contexts = [findcontext(polyctx, stage) for stage in poly]
+
+        refnote = poly[1][findfirst(!ismissing, poly[1])]
+        ref = pc(pitch(refnote))
+        hists = map(poly, contexts, 1:length(poly)) do stage, ctx, i
+            histpc = pchist(ctx, weighted)
+            [(p-ref, v, i) for (p,v) in histpc]
+        end
+        rows = [row for stage in hists for row in stage]
+        return (ic=getindex.(rows,1), freq=getindex.(rows,2), stage=getindex.(rows, 3))
+    end
+
+    by(df, [:notes, :schema], [:context, :notes] => stagehist)
+end
+
 #mergehists(h1, h2) = merge(+, h1, h2)
 
-function schemahists(polyhistdf)
+"""
+    schemaprofiles(polyhistdf)
+
+Takes a histogram dataframe as returned by `contexthists`.
+Averages all histograms of the same schema.
+The dataframe should only contain true instances.
+"""
+function schemaprofiles(polyhistdf)
     by(polyhistdf, [:schema, :ic], freq=:freq=>mean)
 end
 
-schemaprofiles(shdf) = shdf[shdf.isinstance, Not(:isinstance)]
+"""
+    stageprofiles(polyhistdf)
 
+Takes a histogram dataframe as returned by `stagehists`.
+Averages all histograms of the same schema at the same stage.
+The dataframe should only contain true instances.
+"""
+function stageprofiles(stagehistdf)
+    by(stagehistdf, [:schema, :ic, :stage], freq=:freq=>mean)
+end
+
+# schemaprofiles(shdf) = shdf[shdf.isinstance, Not(:isinstance)]
+
+"""
+    profiledist(profile, observed, dist=Euclidean())
+
+Takes a profile dataframe for a schema (or stage)
+and a dataframe containing the obeserved histogram in the context of a match.
+Returns the distance between the two histograms (euclidean by default).
+"""
 function profiledist(profile, observed, dist=Euclidean())
     joint = join(profile, observed, on=:ic, makeunique=true, kind=:outer)
     
-    evaluate(dist, coalesce.(joint.freq, 0), coalesce.(joint.freq_1, 0))
+    res = evaluate(dist, coalesce.(joint.freq, 0), coalesce.(joint.freq_1, 0))
+    if isnan(res)
+        @error "invalid profile distance: $observed"
+    end
+    res
 end
 
+"""
+    contextfeature(ctxdf, profiledf, dist=Euclidean())
+
+Compares the contexts of polygrams in `ctxdf` (as returned by `contexthists`)
+with the profiles of the corresponding schema
+(given in `profiledf`, as returned by `schemaprofiles`).
+Returns a new dataframe with one distance value per polygram.
+Columns: `notes` (same as in main df) and `profiledist`.
+"""
 function contextfeature(ctxdf, profiledf, dist=Euclidean())
     profs = Dict(schema => profiledf[profiledf.schema .== schema, :]
                  for schema in levels(profiledf.schema))
     
     function evaldist(cols)
-        profile = profs[cols.schema[1]]
+        profile = get(profs, cols.schema[1], DataFrame(ic=[], freq=[]))
         profiledist(profile, DataFrame(ic=cols.ic, freq=cols.freq), dist)
     end
 
     by(ctxdf, :notes, profiledist=[:ic, :freq, :schema]=>evaldist)
+end
+
+
+
+"""
+    stagectxfeature(stagedf, profiledf, dist=Euclidean())
+
+Compares the context of each stage of the polygrams in `ctxdf`
+(as returned by `stagehists`)
+with the profiles of the corresponding schema at the same stage
+(given in `profiledf`, as returned by `stageprofiles`).
+Returns a new dataframe with one distance value per polygram.
+Columns: `notes` (same as in main df) and `profiledist`.
+"""
+function stagectxfeature(stagedf, profiledf, dist=Euclidean())
+    profs = Dict()
+
+    for schema in levels(profiledf.schema)
+        schemadf = profiledf[profiledf.schema .== schema, :]
+        maxstage = isempty(schemadf.stage) ? 0 : maximum(schemadf.stage)
+        stageprofs = Dict(s => schemadf[schemadf.stage .== s, :]
+                          for s in 1:maxstage)
+        profs[schema] = stageprofs
+    end
+    
+    function evaldist(cols)
+        profile = get(get(profs, cols.schema[1], Dict()), cols.stage[1], DataFrame(ic=[], freq=[]))
+        profiledist(profile, DataFrame(ic=cols.ic, freq=cols.freq), dist)
+    end
+
+    stagedists = by(stagedf, [:notes, :stage], stgprofiledist=[:ic, :freq, :schema, :stage]=>evaldist)
+    by(stagedists, [:notes], stgprofiledist=:stgprofiledist=>mean)
 end
 
 function plotichists(hists; groups=1:length(hists), kwargs...)

@@ -65,6 +65,7 @@ function loadpiecedata(corpusdir, pieceid, schemaids)
     notes = getpiece(pieceid, :notes, :musicxml, type=:notes, keepids=true, unfold=true)
     timesigs = getpiece(pieceid, :timesigs, :musicxml, nowarn=true)
     beatfactor = convert(Float64, denominator(content(timesigs[1][1])))
+    barlen = duration(content(timesigs[1][1]))
 
     notedict = Polygrams.mknotedict(notes)
     total = 0
@@ -100,10 +101,12 @@ function loadpiecedata(corpusdir, pieceid, schemaids)
     end
 
     beatfactors = fill(beatfactor, total)
+    barlens = fill(barlen, total)
     piececol = CategoricalArray{String}(undef, total)
     fill!(piececol, pieceid)
 
-    polydf = DataFrame(notesraw=matches, isinstance=isinstance, beatfactor=beatfactors,
+    polydf = DataFrame(notesraw=matches, isinstance=isinstance,
+                       beatfactor=beatfactors, barlen=barlens,
                        piece=piececol, schema=schemacol)
     
     return polydf, notes, timesigs[1]
@@ -141,7 +144,7 @@ function loadcorpusdata(corpusdir, schemaids)
         end
 
         notelists[piece] = notes
-	timesigdict[piece] = ts
+        timesigdict[piece] = ts
     end
 
     return df, notelists, timesigdict
@@ -357,15 +360,16 @@ DigitalMusicology.tointerval(::Missing) = missing
 include("features.jl")
 
 feats = Dict(
-    :dur => getDuration,
-    :vdist => (notes, _) -> Polygrams.voicedist(notes),
-    :sskip => stageSkip,
-    :rdsums => rhythmDistanceSumInEvent,
-    :rdsumv => rhythmDistanceSumInVoice,
-    :rreg => rhythmicirregularity,
-    :pdsums => (notes, _) -> pitchDistanceSumInEvent(notes),
-    :pdsumv => (notes, _) -> pitchDistanceSumInVoice(notes),
-    :preg => (notes, _) -> pitchirregularity(notes),
+    :dur =>    row -> getDuration(row.notes, row.beatfactor),
+    :vdist =>  row -> Polygrams.voicedist(row.notes),
+    :sskip =>  row -> stageSkip(row.notes, row.beatfactor),
+    :rdsums => row -> rhythmDistanceSumInEvent(row.notes, row.beatfactor),
+    :rdsumv => row -> rhythmDistanceSumInVoice(row.notes, row.beatfactor),
+    :onsets => row -> onsetsinstage(row.notes, row.context),
+    :rreg =>   row -> rhythmicirregularity(row.notes, row.beatfactor),
+    :pdsums => row -> pitchDistanceSumInEvent(row.notes),
+    :pdsumv => row -> pitchDistanceSumInVoice(row.notes),
+    :preg =>   row -> pitchirregularity(row.notes),
 )
 
 """
@@ -385,7 +389,7 @@ function runfeatures(df, features)
     df = copy(df)
     for (name, f) in features
         @info "evaluating feature $name" 
-        df[!, name] = map(f, df.notes, df.beatfactor)
+        df[!, name] = map(f, eachrow(df))
     end
     return df
 end
@@ -401,10 +405,12 @@ Returns a named tuple of trained info.
 """
 function trainfeatures(traindf)
     ctxhists = contexthists(traindf[traindf.isinstance, [:notes, :context, :schema]])
+    ctxprofiles = schemaprofiles(ctxhists)
 
-    ctxprofiles = schemahists(ctxhists)
+    stghists = stagehists(traindf[traindf.isinstance, [:notes, :context, :schema]])
+    stgprofiles = stageprofiles(stghists)
 
-    return (ctxprofiles=ctxprofiles,)
+    return (ctxprofiles=ctxprofiles, stgprofiles=stgprofiles)
 end
 
 """
@@ -415,9 +421,21 @@ as returned by `trainfeatures`.
 Returns a new dataframe with extra columns.
 """
 function rundepfeatures(df, info)
+    if :profiledist ∈ names(df)
+        df = df[!, Not(:profiledist)]
+    end
+    
+    if :stgprofiledist ∈ names(df)
+        df = df[!, Not(:stgprofiledist)]
+    end
+    
     ctxhists = contexthists(df)
     ctxfeat = contextfeature(ctxhists, info.ctxprofiles)
     df = join(df, ctxfeat[!, [:notes, :profiledist]], on=:notes)
+
+    stghists = stagehists(df)
+    stgfeat = stagectxfeature(stghists, info.stgprofiles)
+    df = join(df, stgfeat[!, [:notes, :stgprofiledist]], on=:notes)
 
     return df
 end

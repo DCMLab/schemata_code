@@ -5,29 +5,29 @@ lex = Polygrams.loadlexicon(joinpath(corpusdir, "..", "lexicon.json"))
 ismirschemas = [
     "doremi.2", # 5
     "fenaroli.2", # 10
-    "fenaroli.2.min", # 3
-    "fenaroli.2.basscanon", # 0
-    "fenaroli.2.basscanon.min", # 1
-    "fenaroli.2.durante",
-    "fenaroli.2.durante.min",
+    #"fenaroli.2.min", # 3
+    #"fenaroli.2.basscanon", # 0
+    #"fenaroli.2.basscanon.min", # 1
+    #"fenaroli.2.durante",
+    #"fenaroli.2.durante.min",
     "fenaroli.2.flipped", # 43
     "fenaroli.2.flipped.min", # 8
     "fenaroli.2.melcanon", # 6
-    "fenaroli.2.melcanon.min", # 2
-    "folia.2", # 0
+    #"fenaroli.2.melcanon.min", # 2
+    #"folia.2", # 0
     "fonte.2", # 49
-    "fonte.2.flipped", # 2
+    #"fonte.2.flipped", # 2
     "fonte.2.majmaj", # 8
-    "grandcad.2", # 0
+    #"grandcad.2", # 0
     "indugio.2", # 9
     "indugio.2.voiceex", # 5
-    "lamento.2", # 2
-    "lully.2", # 2
-    "morte.2", # 1
+    #"lamento.2", # 2
+    #"lully.2", # 2
+    #"morte.2", # 1
     "prinner.2", # 32
     "quiescenza.2", # 46
     "quiescenza.2.diatonic", # 6
-    "solfami.2" # 4
+    #"solfami.2" # 4
 ]
 
 df, notelists = loadcorpusdata(corpusdir, ismirschemas);
@@ -36,6 +36,10 @@ df = cleancorpusdata(df, lex)
 df = findgroups(df)
 df = findfullcontexts(df, notelists)
 
+#dffull = df
+#df = df[map(s->s ∈ ismirschemas,df.schema), :]
+#df = dffull
+
 df = runfeatures(df, feats)
 
 dftrain, dftest = splitdf(df)
@@ -43,6 +47,12 @@ dftrain, dftest = splitdf(df)
 info = trainfeatures(dftrain)
 dftrain = rundepfeatures(dftrain, info)
 dftest  = rundepfeatures(dftest, info)
+
+###
+stghists = stagehists(dftrain[dftrain.isinstance, :])
+stgprofiles = stageprofiles(stghists)
+testhists = stagehists(dftest)
+###
 
 plotfeatures(dftest, featcols)
 
@@ -106,10 +116,10 @@ plotcol(dfutest, :nn)
 
 # evaluation
 
-showeval(dftest; predcol=:nnlrbool)
+showeval(dftest)
 showeval(dfutest)
 showeval(dfutest, predcol=:nnbool)
-showeval(dfdtest, predcol=:nnbool)
+showeval(dfdtest)
 
 evaltable(dftest)
 evaltable(dfutest)
@@ -135,3 +145,16 @@ plot(0:0.01:1, fss)
 
 fpsd = findfps(dfdtest)
 fpsd = confidentfps(dfutest, gtcol=:groupisinstance, thres=0.9)
+
+# testing
+
+modelu = fitmodel(dfutrain, featcols)
+dfutest = addpredictions(dfutest, modelu);
+showeval(dfutest)
+
+dfutrain = addpredictions(dfutrain, modelu);
+showeval(dfutrain)
+
+modeld = fitmodel(dfdtrain, featcols)
+dfdtest = addpredictions(dfdtest, modeld);
+showeval(dfdtest)
