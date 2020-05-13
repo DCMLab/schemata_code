@@ -20,10 +20,11 @@ include("Polygrams.jl")
 # # Loading Procedure
 # Use the following steps to load and preprocess the data
 # 1. Load the lexicon:  lex = Polygrams.loadlexicon(path)
-# 2. Load the raw data: df, notelists = loadcorpusdata(corpusdir, schemaids)
+# 2. Load the raw data: df, notelists, fnds, tsigs = loadcorpusdata(corpusdir, schemaids)
 # 3. Clean the data:    df = cleancorpusdata(df, lex)
 # 4. Find groups:       df = findgroups(df)
-# 5. (optional) Resample/balance the data:
+# 5. Find contexts:     df = findfullcontexts(df, notelists)
+# 6. (optional) Resample/balance the data:
 #                       dfu = upsample(df)
 #                       dfd = downsample(df)
 # # Dataframe Format
@@ -33,7 +34,8 @@ include("Polygrams.jl")
 # Columns:
 # - piece (String): id of the piece the polygram is taken from
 # - schema (String): id of the used schema variant
-# - beatfactor (Int): Int the denominator of the piece's time signature (proxy for duration of a "beat")
+# - beatfactor (Int): the denominator of the piece's time signature (proxy for duration of a "beat")
+# - timesigs (TSMap): a time-signature map of the piece
 # - notesraw (Vector^2{Note}: the unprocessed polygram as loaded (no missings but ragged stages)
 # - notes (Vector^2{Note?}): the resolved polygram (stages of equal size, missing notes at correct place)
 # - isinstance (Bool): is the polygram an actual schema instance or not?
@@ -51,8 +53,7 @@ include("Polygrams.jl")
 
 Loads positive and negative instances of the schema `schemaid`
 for the piece `pieceid` in the corpus `corpusdir`.
-Returns a tuple of positive instances (`Array`),
-negative instances (`Array`) and bar length of the piece (`Rational{Int}`).
+Returns a dataframe with columns for this piece
 
 `corpusdir` points to the directory that contains `musicxml/`,
 `annotations/`, and `groups/`.
@@ -63,6 +64,7 @@ function loadpiecedata(corpusdir, pieceid, schemaids)
     usedir(joinpath(corpusdir, "musicxml"))
 
     notes = getpiece(pieceid, :notes, :musicxml, type=:notes, keepids=true, unfold=true)
+    notesfolded = getpiece(pieceid, :notes, :musicxml, type=:notes, keepids=true, unfold=false)
     timesigs = getpiece(pieceid, :timesigs, :musicxml, nowarn=true)
     beatfactor = convert(Float64, denominator(content(timesigs[1][1])))
     barlen = duration(content(timesigs[1][1]))
@@ -101,22 +103,27 @@ function loadpiecedata(corpusdir, pieceid, schemaids)
     end
 
     beatfactors = fill(beatfactor, total)
-    barlens = fill(barlen, total)
     piececol = CategoricalArray{String}(undef, total)
     fill!(piececol, pieceid)
+    tscol = categorical(fill(timesigs[1], total))
 
     polydf = DataFrame(notesraw=matches, isinstance=isinstance,
-                       beatfactor=beatfactors, barlen=barlens,
+                       beatfactor=beatfactors, timesigs=tscol,
                        piece=piececol, schema=schemacol)
+
+    fnotedict = Dict{String,eltype(notesfolded)}()
+    for note in notesfolded
+        fnotedict[id(note)] = note
+    end
     
-    return polydf, notes, timesigs[1]
+    return polydf, notes, fnotedict, timesigs
 end
 
 """
     loadcorpusdata(corpusdir, schemaids)
 
 Loads positive and negative instances for a whole corpus and a given schema.
-Returns a data frame with three columns:
+Returns a data frame with three columns: **OUTDATED**
 - `match`: The matched notes as a nested array of `TimedNote`s
 - `instance`: A boolean indicating if the match is a positive (`true`) or negative (`false`) example
 - `barlen`: The duration of one bar according to the time signature of the piece the match is taken from.
@@ -130,12 +137,13 @@ function loadcorpusdata(corpusdir, schemaids)
     pieces = allpieces()
     df = nothing
     notelists = Dict()
+    foldednotedicts = Dict()
     timesigdict = Dict()
 
 
     @showprogress 1 "loading pieces..." for piece in pieces
         #@info "loading piece $(piece)"
-        polydf, notes, ts = loadpiecedata(corpusdir, piece, schemaids)
+        polydf, notes, notesf, ts = loadpiecedata(corpusdir, piece, schemaids)
 
         if df == nothing
             df = polydf
@@ -144,10 +152,11 @@ function loadcorpusdata(corpusdir, schemaids)
         end
 
         notelists[piece] = notes
+        foldednotedicts[piece] = notesf
         timesigdict[piece] = ts
     end
 
-    return df, notelists, timesigdict
+    return df, notelists, foldednotedicts, timesigdict
 end
 
 # Data cleaning
@@ -168,16 +177,18 @@ Returns a new dataframe like `df` but with shuffled rows.
 shuffledf(df) = df[shuffle(1:(size(df)[1])), :]
 
 """
-    cleancorpusdata(df, lexicon)
+    cleancorpusdata(df, lexicon, fnotedicts)
 
-Takes a dataframe with corpus data and a schema lexicon.
+Takes a dataframe with corpus data, a schema lexicon,
+and a dictionary of folded notedicts.
 Performs some post-processing on the dataframe, such as resolving implicit notes:
 - Adds a new column `notes` that contains the resolved polygrams.
 - Removes rows with unresolvable polygrams.
+- Adds a new column for the same notes but as written (taken from `fnotelists`).
 - Shuffles the rows' order.
 Returns the new dataframe (the original is not modified)
 """
-function cleancorpusdata(df, lexicon)
+function cleancorpusdata(df, lexicon, fnotedicts)
     notescol = map(df.notesraw, df.schema, df.piece) do notes, schema, piece
         try
             Polygrams.resolveimplicits(notes, lexicon[schema])
@@ -188,8 +199,17 @@ function cleancorpusdata(df, lexicon)
     end
     df = copy(df)
     df[!, :notes] = notescol
-
     df = df[(!ismissing).(df.notes), :]
+
+    writtennotes = map(df.notes, df.piece) do notes, piece
+        notedict = fnotedicts[piece]
+        map(notes) do stage
+            map(stage) do note
+                ismissing(note) ? missing : notedict[id(note)]
+            end
+        end
+    end
+    df[!, :noteswritten] = writtennotes
 
     return shuffledf(df)
 end
@@ -360,6 +380,7 @@ DigitalMusicology.tointerval(::Missing) = missing
 include("features.jl")
 
 feats = Dict(
+    :mweight => row -> mWeight(row.noteswritten, get(row.timesigs)),
     :dur =>    row -> getDuration(row.notes, row.beatfactor),
     :vdist =>  row -> Polygrams.voicedist(row.notes),
     :sskip =>  row -> stageSkip(row.notes, row.beatfactor),
@@ -367,15 +388,17 @@ feats = Dict(
     :rdsumv => row -> rhythmDistanceSumInVoice(row.notes, row.beatfactor),
     :onsets => row -> onsetsinstage(row.notes, row.context),
     :rreg =>   row -> rhythmicirregularity(row.notes, row.beatfactor),
+    :mreg   => row -> metricirregularity(row.notes, row.beatfactor),
     :pdsums => row -> pitchDistanceSumInEvent(row.notes),
     :pdsumv => row -> pitchDistanceSumInVoice(row.notes),
     :preg =>   row -> pitchirregularity(row.notes),
 )
 
 """
-    runfeatures(df, features)
+    runfeatures(df, features, fnotelists)
 
-Takes a dataframe of schema instances and a dictionary of features.
+Takes a dataframe of schema instances, a dictionary of features,
+and a dictionary of folded note lists.
 The feature dictionary contains feature functions
 that take a schema instance (with potentially missing notes)
 and the beat length of the piece (which may be ignored).
@@ -388,8 +411,8 @@ Returns the extended dataframe.
 function runfeatures(df, features)
     df = copy(df)
     for (name, f) in features
-        @info "evaluating feature $name" 
-        df[!, name] = map(f, eachrow(df))
+        #@info "evaluating feature $name" 
+        df[!, name] = @showprogress 0.1 "running feature $name\t" map(f, eachrow(df))
     end
     return df
 end
@@ -433,9 +456,9 @@ function rundepfeatures(df, info)
     ctxfeat = contextfeature(ctxhists, info.ctxprofiles)
     df = join(df, ctxfeat[!, [:notes, :profiledist]], on=:notes)
 
-    stghists = stagehists(df)
-    stgfeat = stagectxfeature(stghists, info.stgprofiles)
-    df = join(df, stgfeat[!, [:notes, :stgprofiledist]], on=:notes)
+    #stghists = stagehists(df)
+    #stgfeat = stagectxfeature(stghists, info.stgprofiles)
+    #df = join(df, stgfeat[!, [:notes, :stgprofiledist]], on=:notes)
 
     return df
 end
@@ -478,7 +501,7 @@ end
 
 function fitmodel(df, cols)
     form = term(:isinstance) ~ term(1) + foldl(+, term.(cols))
-    @show form
+    #@show form
     glm(form, df, Bernoulli(), LogitLink())
 end
 
@@ -487,7 +510,7 @@ function addpredictions(df, model;
                         corrinter=log((1-tau)/tau))
     df = copy(df)
 
-    @show corrinter
+    #@show corrinter
 
     X = modelmatrix(model.mf.f, df)
     coeffs = [c for c in coef(model)]
@@ -664,6 +687,31 @@ function splitdf(df, split=0.8; group=:isinstance)
     shuffledf(dftrain), shuffledf(dftest)
 end
 
+function crossval(f, df, k=10; group=:isinstance)
+    function getfold(subdf, s)
+        n = size(subdf)[1]
+        low = Int(round(s*n/k+1))
+        up  = Int(round((s+1)*n/k))
+        subdf[low:up, :]
+    end
+
+    groupfolds = [getfold(subdf, s)
+                  for (key, subdf) in pairs(groupby(df, group)),
+                  s in 0:k-1]
+
+    folds = [shuffledf(vcat(col...)) for col in eachcol(groupfolds)]
+
+    results = []
+    for i in 1:k
+        test = folds[i]
+        train = vcat(folds[Not(i)]...)
+        println("Running fold $i...")
+        push!(results, f(train, test))
+    end
+    
+    results
+end
+
 # Grouping
 # --------
 
@@ -733,7 +781,7 @@ function bareval(df, corpus, noteslist, ts)
 
 	for piece in corpus
 		notes = noteslist[piece]
-		timesig = ts[piece]
+		timesig = ts[piece][1]
 		
 		dfpiece = df[!, :piece]
 		dfpoly = df[!, :notes]

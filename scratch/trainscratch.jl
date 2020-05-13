@@ -30,9 +30,10 @@ ismirschemas = [
     #"solfami.2" # 4
 ]
 
-df, notelists = loadcorpusdata(corpusdir, ismirschemas);
+df, notelists, foldednotedicts, tsigs =
+    loadcorpusdata(corpusdir, ismirschemas);
 
-df = cleancorpusdata(df, lex)
+df = cleancorpusdata(df, lex, foldednotedicts)
 df = findgroups(df)
 df = findfullcontexts(df, notelists)
 
@@ -49,9 +50,9 @@ dftrain = rundepfeatures(dftrain, info)
 dftest  = rundepfeatures(dftest, info)
 
 ###
-stghists = stagehists(dftrain[dftrain.isinstance, :])
-stgprofiles = stageprofiles(stghists)
-testhists = stagehists(dftest)
+#stghists = stagehists(dftrain[dftrain.isinstance, :])
+#stgprofiles = stageprofiles(stghists)
+#testhists = stagehists(dftest)
 ###
 
 plotfeatures(dftest, featcols)
@@ -158,3 +159,32 @@ showeval(dfutrain)
 modeld = fitmodel(dfdtrain, featcols)
 dfdtest = addpredictions(dfdtest, modeld);
 showeval(dfdtest)
+
+# cross validation
+
+dfscross = crossval(df, 5) do dftrain, dftest
+    info = trainfeatures(dftrain)
+    dftrain = rundepfeatures(dftrain, info)
+    dftest  = rundepfeatures(dftest, info)
+    
+    dfutrain = upsample(dftrain)
+    dfutest  = upsample(dftest)
+    dfdtrain = downsample(dftrain)
+    dfdtest = downsample(dftest)
+    
+    #model = fitmodel(dftrain, featcols)
+    modelu = fitmodel(dfutrain, featcols)
+    #modeld = fitmodel(dfdtrain, featcols)
+
+    #dftest = addpredictions(dftest, modelu);
+    #dftestalt = addpredictions(dftest, model, corrinter=0);
+    dfutest = addpredictions(dfutest, modelu);
+    #dfdtest = addpredictions(dfdtest, modeld);
+
+    showeval(dfutest)
+    
+    dfutest
+end
+
+dfcross = vcat(dfscross...)
+showeval(dfcross)

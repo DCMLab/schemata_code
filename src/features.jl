@@ -25,6 +25,12 @@ function stageSkip(poly, beatfactor)
 	return beatfactor * Polygrams.instageskip(poly)
 end
 
+function mWeight(poly, timesigs)
+    mean(DigitalMusicology.metricweight(onset(note), timesigs)
+         for stage in poly
+         for note in stage
+         if !ismissing(note)) * 1.0
+end
 
 ### RHYTHMIC FEATURES
 
@@ -114,6 +120,7 @@ function rhythmicdist(stage1, stage2)
     npairs = 0
     mindist = Inf
 
+    # possible offsets: all points where 1 note pair is aligned
     for j in 1:n
         offset = onset(stage2[j]) - onset(stage1[j])
         if !ismissing(offset)
@@ -162,6 +169,56 @@ function rhythmicirregularity(poly, beatfactor)
     #     @warn "infinite reg: $beatfactor, $sum, $npairs"
     # end
 
+    return reg
+end
+
+function metricdist(stage1, stage2, beat)
+    allons1 = onset.(stage1)
+    allons2 = onset.(stage2)
+    pairs = [(o1,o2) for (o1,o2) in zip(allons1,allons2)
+             if !ismissing(o1) & !ismissing(o2)]
+    if isempty(pairs)
+        return 0, 0
+    end
+
+    ons1 = filter(!ismissing, allons1)
+    ons2 = filter(!ismissing, allons2)
+    low1 = minimum(ons1)
+    low2 = minimum(ons2)
+    high1 = maximum(ons1)
+    high2 = maximum(ons2)
+
+    offmax = Int(ceil((high2 - low1)/beat))
+    offmin = Int(floor((low2 - high1)/beat))
+
+    n = length(stage1)
+
+    dist = minimum(sum(abs(o1 - o2 - off*beat)
+                       for (o1,o2) in pairs)
+                   for off in offmin:offmax)
+    return dist, length(pairs)
+end
+
+"""
+    metricirregularity(poly, beatfactor)
+
+Like `rhythmicirregularity`, but aligns stages on a grid of whole beats,
+preserving the metrical positions.
+"""
+function metricirregularity(poly, beatfactor)
+    beat = 1/beatfactor
+    n = length(poly)
+    npairs = 0
+    sum = 0
+
+    for i in 1:n-1
+        for j in i+1:n
+            d, p = metricdist(poly[i], poly[j], beat)
+            sum = sum + d
+            npairs = npairs + p
+        end
+    end
+    reg = beatfactor * sum / npairs
     return reg
 end
 
