@@ -714,7 +714,7 @@ function bareval(df, corpus, noteslist, ts)
 	fn = 0
 
 	for piece in corpus
-		notes = notelists[piece]
+		notes = noteslist[piece]
 		timesig = ts[piece]
 		
 		dfpiece = df[!, :piece]
@@ -735,8 +735,8 @@ function bareval(df, corpus, noteslist, ts)
 			end
 		end
 
-		bm_gt = barmatch(notes, timesigs, gtpoly)
-		bm_matcher = barmatch(notes, timesigs, matcherpoly)
+		bm_gt = barmatch(notes, timesig, gtpoly)
+		bm_matcher = barmatch(notes, timesig, matcherpoly)
 
 		for i in 1:length(bm_gt)
 			if bm_gt[i] == true && bm_matcher[i] == true
