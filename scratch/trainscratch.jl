@@ -3,7 +3,7 @@ corpusdir = "../../schema_annotation_data/data/mozart_sonatas/"
 lex = Polygrams.loadlexicon(joinpath(corpusdir, "..", "lexicon.json"))
 
 ismirschemas = [
-    "doremi.2", # 5
+    #"doremi.2", # 5
     "fenaroli.2", # 10
     #"fenaroli.2.min", # 3
     #"fenaroli.2.basscanon", # 0

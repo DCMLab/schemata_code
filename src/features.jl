@@ -26,7 +26,7 @@ function stageSkip(poly, beatfactor)
 end
 
 function mWeight(poly, timesigs)
-    mean(DigitalMusicology.metricweight(onset(note), timesigs)
+    mean(DigitalMusicology.metricweight(onset(note), timesigs, warning=false)
          for stage in poly
          for note in stage
          if !ismissing(note)) * 1.0

@@ -1,6 +1,7 @@
 # classify.jl
 
 using Random
+using Printf
 using DigitalMusicology
 using DataFrames
 using GLM
@@ -469,29 +470,38 @@ featcols = [:profiledist, keys(feats)...]
 # -----------------
 
 function plotcol(df, col; group=:overcat, kwargs...)
-    density(df[:, col]; group=df[:, group], kwargs...)
+    density(df[:, col]; group=df[!, group], kwargs...)
 end
 
-function plotfeatures(df, cols; group=:overcat, width=600, height=150, title="feature distribution")
+function featureplots(df, cols;
+                      group=:overcat, title="feature distribution",
+                      kwargs...)
     n = length(cols)
+    ps = [plotcol(df, c; group=group, title="$title $c",
+                  legend=(i==n ? (1,1) : :none), kwargs...)
+          for (i,c) in enumerate(cols)]
+    return ps
 
-    ps = [plotcol(df, c; group=group, title="$title $c", legend=(c==:vdist ? :best : :none)) for c in cols]
-    
+end
+
+function plotfeatures(df, cols; width=600, height=150, kwargs...)
+    n = length(cols)
+    ps = featureplots(df, cols; kwargs...)
     plot(ps..., layout=grid(n,1), size=(width, height*n))
 end
 
-function plotfeatures(df, features, schema; group=:overcat, width=600, height=150)
-    if schema == :all
-        schemas = levels(df.schema)
-        l = @layout grid(1, length(schemas))
-        subplots = [plotfeatures(df, features, s) for s in schemas]
-        plot(subplots..., layout = l,
-             width=width,
-             height=height*length(schemas)*length(features))
-    else
-        plotfeatures(df[df.schema .== schema, :], features, title=schema)
-    end
-end
+# function plotfeatures(df, features, schema; group=:overcat, width=600, height=150)
+#     if schema == :all
+#         schemas = levels(df.schema)
+#         l = @layout grid(1, length(schemas))
+#         subplots = [plotfeatures(df, features, s) for s in schemas]
+#         plot(subplots..., layout = l,
+#              width=width,
+#              height=height*length(schemas)*length(features))
+#     else
+#         plotfeatures(df[df.schema .== schema, :], features, title=schema)
+#     end
+# end
 
 # Running the model
 # =================
@@ -673,6 +683,34 @@ function evaltable(df; gtcol=:isinstance, predcols=[:predbool, :svmbool, :nnlrbo
               acc=accs, prec=precs, fscore=fscs, mcc=mccs)
 end
 
+function evaltex(df, gtcol=:isinstance, predcol=:predbool)
+    gt = df[!, gtcol]
+    pred = df[!, predcol]
+
+    @printf("%d & %d & %d & %d & %.3f & %.3f & %.3f & %.3f & %.3f\\\\",
+            truepos(gt, pred),
+            trueneg(gt, pred),
+            falsepos(gt, pred),
+            falseneg(gt, pred),
+            accuracy(gt, pred),
+            precision(gt, pred),
+            recall(gt, pred),
+            fscore(gt, pred),
+            mcc(gt, pred))
+end
+
+function plotmodel(model; kwargs...)
+    mtups = sort(collect(zip(coefnames(model),
+                             coef(model),
+                             eachrow(confint(model)))),
+                 by=x->x[2])
+    plot(getindex.(mtups, 1), getindex.(mtups, 2); kwargs...)
+    errorys = vcat([[err[1], err[2], NaN] for (_,_,err) in mtups]...)
+    errorxs = vcat([[i-0.66, i-0.66, missing] for i in 1:length(mtups)]...)
+    plot!(errorxs, errorys, color=:black, lw=2)
+    getindex.(mtups,1)
+end
+
 # Data Splitting
 # --------------
 
@@ -688,6 +726,8 @@ function splitdf(df, split=0.8; group=:isinstance)
 end
 
 function crossval(f, df, k=10; group=:isinstance)
+    df = shuffledf(df) # randomize each time
+    
     function getfold(subdf, s)
         n = size(subdf)[1]
         low = Int(round(s*n/k+1))
