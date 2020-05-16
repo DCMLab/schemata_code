@@ -13201,11 +13201,10 @@ div#notebook {
     <div class="input_area">
 <div class=" highlight hl-julia"><pre><span></span><span class="c"># setup</span>
 
-<span class="n">corpusdir</span> <span class="o">=</span> <span class="s">&quot;../schema_annotation_data/data/mozart_sonatas/&quot;</span><span class="p">;</span> <span class="c"># TODO: fix this for the final notebook</span>
+<span class="n">corpusdir</span> <span class="o">=</span> <span class="s">&quot;../schema_annotation_data/data/mozart_sonatas/&quot;</span><span class="p">;</span>
 
 <span class="n">lex</span> <span class="o">=</span> <span class="n">Polygrams</span><span class="o">.</span><span class="n">loadlexicon</span><span class="p">(</span><span class="n">joinpath</span><span class="p">(</span><span class="n">corpusdir</span><span class="p">,</span> <span class="s">&quot;..&quot;</span><span class="p">,</span> <span class="s">&quot;lexicon.json&quot;</span><span class="p">));</span>
 
-<span class="c"># TODO: select schemata</span>
 <span class="n">ismirschemas</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s">&quot;doremi.2&quot;</span><span class="p">,</span> <span class="c"># 5</span>
     <span class="s">&quot;fenaroli.2&quot;</span><span class="p">,</span> <span class="c"># 10</span>
@@ -13561,7 +13560,6 @@ total number of notes: 103829
     
     <span class="c"># fit the model</span>
     <span class="n">modelu</span> <span class="o">=</span> <span class="n">fitmodel</span><span class="p">(</span><span class="n">dfutrain</span><span class="p">,</span> <span class="n">featnames</span><span class="p">)</span>
-    <span class="c"># TODO: add other models</span>
     
     <span class="c"># make predictions</span>
     <span class="n">dfupred</span> <span class="o">=</span> <span class="n">addpredictions</span><span class="p">(</span><span class="n">dfutest</span><span class="p">,</span> <span class="n">modelu</span><span class="p">)</span> <span class="c"># on balanced data</span>
