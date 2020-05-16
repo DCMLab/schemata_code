@@ -1,0 +1,3 @@
+[submodule "data"]
+	path = schema_annotation_data
+	url = https://github.com/DCMLab/schema_annotation_data
