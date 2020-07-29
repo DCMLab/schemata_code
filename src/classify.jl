@@ -699,17 +699,29 @@ function evaltex(df, gtcol=:isinstance, predcol=:predbool)
             mcc(gt, pred))
 end
 
-function plotmodel(model; kwargs...)
-    mtups = sort(collect(zip(coefnames(model),
-                             coef(model),
-                             eachrow(confint(model)))),
-                 by=x->x[2])
-    plot(getindex.(mtups, 1), getindex.(mtups, 2); kwargs...)
+function plotmodel(model, scaledict=nothing; kwargs...)
+    if scaledict == nothing
+        scaledict = Dict()
+    end
+
+    mtups = map(coef(model), eachrow(confint(model)), coefnames(model)) do param, ci, name
+        scale = get(scaledict, name, 1)
+        beta = param * scale
+        ci = ci * scale
+        (name, beta, ci)
+    end
+    #mtups = collect(zip(coefnames(model), coef(model), eachrow(confint(model))))
+    
+    sort!(mtups, by=x->x[2])
+    cnames = getindex.(mtups, 1)
+
+    plot(cnames, getindex.(mtups, 2); kwargs...)
     errorys = vcat([[err[1], err[2], NaN] for (_,_,err) in mtups]...)
     errorxs = vcat([[i-0.66, i-0.66, missing] for i in 1:length(mtups)]...)
     plot!(errorxs, errorys, color=:black, lw=2)
-    getindex.(mtups,1)
+    cnames
 end
+
 
 # Data Splitting
 # --------------
